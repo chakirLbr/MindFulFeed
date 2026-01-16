@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Session Reflection</title>
+    <link rel="stylesheet" href="reflection.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="../logo/logo-main.png" alt="MindfulFeed" />
+        <div>
+          <div class="name">MindfulFeed</div>
+          <div class="sub">Session Reflection</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Achievement Notification (if any) -->
+      <div id="achievementNotif" class="achievement-notif hidden">
+        <div class="achievement-content">
+          <span class="achievement-icon" id="achievementIcon">🏆</span>
+          <div class="achievement-text">
+            <div class="achievement-title" id="achievementTitle">Achievement Unlocked!</div>
+            <div class="achievement-desc" id="achievementDesc">Description</div>
+          </div>
+          <button class="close-btn" id="closeAchievement">×</button>
+        </div>
+      </div>
+
+      <!-- Session Summary -->
+      <section class="card session-summary">
+        <h2>Session Complete</h2>
+        <div class="summary-stats">
+          <div class="stat">
+            <div class="stat-label">Duration</div>
+            <div class="stat-value" id="sessionDuration">00:00</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Platform</div>
+            <div class="stat-value" id="sessionPlatform">-</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Posts Viewed</div>
+            <div class="stat-value" id="postsViewed">0</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Reflection Form -->
+      <section class="card reflection-form">
+        <h2>📝 Take a moment to reflect...</h2>
+        <p class="hint">Research shows that reflection improves self-awareness and helps build healthier digital habits.</p>
+
+        <form id="reflectionForm">
+          <!-- Awareness Question -->
+          <div class="question">
+            <label for="awareness" class="question-label">
+              How intentional was your scrolling?
+            </label>
+            <div class="scale-input">
+              <input type="range" id="awareness" name="awareness" min="1" max="5" value="3" class="slider">
+              <div class="scale-labels">
+                <span>Mindless</span>
+                <span class="scale-value" id="awarenessValue">3</span>
+                <span>Very Intentional</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mood Question -->
+          <div class="question">
+            <label class="question-label">
+              How do you feel after this session?
+            </label>
+            <div class="mood-options">
+              <label class="mood-option">
+                <input type="radio" name="mood" value="energized" required>
+                <span class="mood-emoji">⚡</span>
+                <span class="mood-label">Energized</span>
+              </label>
+              <label class="mood-option">
+                <input type="radio" name="mood" value="relaxed">
+                <span class="mood-emoji">😌</span>
+                <span class="mood-label">Relaxed</span>
+              </label>
+              <label class="mood-option">
+                <input type="radio" name="mood" value="neutral">
+                <span class="mood-emoji">😐</span>
+                <span class="mood-label">Neutral</span>
+              </label>
+              <label class="mood-option">
+                <input type="radio" name="mood" value="drained">
+                <span class="mood-emoji">😴</span>
+                <span class="mood-label">Drained</span>
+              </label>
+              <label class="mood-option">
+                <input type="radio" name="mood" value="anxious">
+                <span class="mood-emoji">😰</span>
+                <span class="mood-label">Anxious</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Value Question -->
+          <div class="question">
+            <label for="value" class="question-label">
+              Did this session add value to your day?
+            </label>
+            <div class="scale-input">
+              <input type="range" id="value" name="value" min="1" max="5" value="3" class="slider">
+              <div class="scale-labels">
+                <span>No Value</span>
+                <span class="scale-value" id="valueValue">3</span>
+                <span>Very Valuable</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Control Question -->
+          <div class="question">
+            <label for="control" class="question-label">
+              Did you feel in control of your time?
+            </label>
+            <div class="scale-input">
+              <input type="range" id="control" name="control" min="1" max="5" value="3" class="slider">
+              <div class="scale-labels">
+                <span>Lost Control</span>
+                <span class="scale-value" id="controlValue">3</span>
+                <span>Full Control</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notes (Optional) -->
+          <div class="question">
+            <label for="notes" class="question-label">
+              Any insights or observations? <span class="optional">(optional)</span>
+            </label>
+            <textarea id="notes" name="notes" rows="4" placeholder="What did you notice about your behavior? Any thoughts?"></textarea>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" id="skipBtn" class="btn btn-secondary">Skip</button>
+            <button type="submit" class="btn btn-primary">Submit Reflection</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Nudges (if any) -->
+      <div id="nudgesContainer"></div>
+    </main>
+
+    <script src="reflection.js"></script>
+  </body>
+</html>

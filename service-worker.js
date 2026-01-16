@@ -1,12 +1,19 @@
 // MindfulFeed MV3 service worker
 // - Persistent session timer (Start/Stop)
 // - Stores daily aggregated analytics used by the Summary dashboard
+// - AI-powered content analysis
+// - Gamification and leaderboard
+// - Reflection and feedback system
+
+// Import enhanced modules
+importScripts('ai-analysis.js', 'gamification.js', 'reflection-system.js');
 
 const STATE_KEY = "mf_timer_state";
 const DAILY_KEY = "mf_daily_stats";
 const LAST_SESSION_KEY = "mf_last_session";
 const RAW_SESSION_KEY = "mf_raw_session"; // dwell/caption snapshot from content script
 const SESSION_META_KEY = "mf_session_meta"; // { sessionId, tabId, acceptFinalizeUntil }
+const SESSION_COUNT_KEY = "mf_daily_session_count"; // Track session count per day
 
 const defaultState = {
   isTracking: false,
@@ -119,7 +126,11 @@ async function getActiveInstagramTab() {
       try {
         const u = new URL(t.url);
         if (u.hostname === "www.instagram.com" || u.hostname === "instagram.com") {
-          resolve(t);
+          resolve({ tab: t, platform: 'instagram' });
+          return;
+        }
+        if (u.hostname === "www.youtube.com" || u.hostname === "youtube.com") {
+          resolve({ tab: t, platform: 'youtube' });
           return;
         }
       } catch (_) {}
@@ -137,6 +148,18 @@ async function getSessionMeta() {
 async function setSessionMeta(meta) {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [SESSION_META_KEY]: meta }, () => resolve());
+  });
+}
+
+async function getSessionCounts() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([SESSION_COUNT_KEY], (r) => resolve(r[SESSION_COUNT_KEY] || {}));
+  });
+}
+
+async function setSessionCounts(counts) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [SESSION_COUNT_KEY]: counts }, () => resolve());
   });
 }
 
@@ -168,7 +191,8 @@ async function signalContent(action, payload = {}) {
   await signalContentToTab(tab.id, action, payload);
 }
 
-function generateSessionBreakdown(durationMs, endedAtMs) {
+// Keep old demo function for fallback
+function generateSessionBreakdownDemo(durationMs, endedAtMs) {
   // Deterministic "demo" breakdown based on date + duration (so it doesn't look random each refresh)
   const seed = (endedAtMs / 1000) | 0 ^ (durationMs | 0);
   const rnd = mulberry32(seed);
@@ -199,15 +223,44 @@ function generateSessionBreakdown(durationMs, endedAtMs) {
   return { topicMs, emotionMs, perTopicEmotions };
 }
 
+// AI-powered analysis with fallback to heuristics
+async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
+  try {
+    // Extract posts from raw session data
+    const posts = raw?.posts || [];
+
+    if (posts.length === 0) {
+      // No posts tracked - use demo data
+      console.log('[MindfulFeed] No posts found, using demo breakdown');
+      return generateSessionBreakdownDemo(durationMs, endedAtMs);
+    }
+
+    // Use AI analysis (with heuristic fallback)
+    const analysis = await AI_ANALYSIS.analyzePostsBatch(posts);
+
+    // Convert to legacy format for compatibility
+    const breakdown = AI_ANALYSIS.toLegacyFormat(analysis);
+
+    // Add full analysis for insights
+    breakdown.fullAnalysis = analysis;
+
+    return breakdown;
+  } catch (error) {
+    console.error('[MindfulFeed] Analysis error, using demo:', error);
+    return generateSessionBreakdownDemo(durationMs, endedAtMs);
+  }
+}
+
 async function start() {
   const state = await getState();
   if (state.isTracking) return state;
 
-  const tab = await getActiveInstagramTab();
-  if (!tab || !tab.id) {
-    throw new Error("Open Instagram Home Feed (instagram.com) and keep it as the active tab, then press Start.");
+  const result = await getActiveInstagramTab();
+  if (!result) {
+    throw new Error("Open Instagram or YouTube and keep it as the active tab, then press Start.");
   }
 
+  const { tab, platform } = result;
   const sid = newSessionId();
   const next = {
     ...state,
@@ -217,10 +270,29 @@ async function start() {
 
   await setState(next);
 
-  await setSessionMeta({ sessionId: sid, tabId: tab.id, acceptFinalizeUntil: 0 });
+  // Increment daily session count
+  const todayKey = isoDate(new Date());
+  const sessionCounts = await getSessionCounts();
+  sessionCounts[todayKey] = (sessionCounts[todayKey] || 0) + 1;
+  await setSessionCounts(sessionCounts);
+
+  await setSessionMeta({
+    sessionId: sid,
+    tabId: tab.id,
+    platform,
+    acceptFinalizeUntil: 0
+  });
 
   // initialize raw session container
-  await setRawSession({ sessionId: sid, startedAt: next.startedAt, pageUrl: null, activeKey: null, posts: [] });
+  await setRawSession({
+    sessionId: sid,
+    startedAt: next.startedAt,
+    platform,
+    pageUrl: null,
+    activeKey: null,
+    posts: []
+  });
+
   await signalContentToTab(tab.id, "START", { sessionId: sid, startedAt: next.startedAt });
 
   return next;
@@ -245,13 +317,14 @@ async function stop() {
   await setSessionMeta({
     sessionId: meta.sessionId,
     tabId: meta.tabId,
+    platform: meta.platform,
     acceptFinalizeUntil
   });
 
   // Store timer state immediately (UI responsiveness)
   await setState(next);
 
-  // Tell the original Instagram tab (from START) to finalize and push last dwell snapshot
+  // Tell the original tab (Instagram/YouTube) to finalize and push last dwell snapshot
   if (meta && meta.tabId) {
     await signalContentToTab(meta.tabId, "STOP", {});
   } else {
@@ -264,25 +337,36 @@ async function stop() {
   // Read raw session snapshot (best-effort)
   const raw = await getRawSession();
 
-  // Store demo analytics for Summary page
-  const breakdown = generateSessionBreakdown(durationMs, endedAt);
+  // AI-powered analysis (with fallback)
+  const breakdown = await generateSessionBreakdown(raw, durationMs, endedAt);
+
+  // Get session count for nudges
+  const dayKey = isoDate(new Date(endedAt));
+  const sessionCounts = await getSessionCounts();
+  const todaySessionCount = sessionCounts[dayKey] || 1;
+
+  // Store session analytics for Summary page
   const session = {
+    sessionId: meta.sessionId,
     endedAt,
     durationMs,
+    platform: meta.platform,
     topics: breakdown.topicMs,
     emotions: breakdown.emotionMs,
     perTopicEmotions: breakdown.perTopicEmotions,
-    raw: raw
+    insights: breakdown.fullAnalysis?.insights || [],
+    raw: raw,
+    sessionCount: todaySessionCount
   };
   await setLastSession(session);
 
   // Aggregate into daily bucket
-  const dayKey = isoDate(new Date(endedAt));
   const daily = await getDaily();
 
   if (!daily[dayKey]) {
     daily[dayKey] = {
       totalMs: 0,
+      sessionCount: 0,
       topics: { Education: 0, Fun: 0, Sport: 0, News: 0 },
       emotions: { Heavy: 0, Light: 0, Neutral: 0 },
       perTopicEmotions: {
@@ -290,11 +374,13 @@ async function stop() {
         Fun: { Heavy: 0, Light: 0, Neutral: 0 },
         Sport: { Heavy: 0, Light: 0, Neutral: 0 },
         News: { Heavy: 0, Light: 0, Neutral: 0 }
-      }
+      },
+      engagement: { Mindful: 0, Mindless: 0, Engaging: 0 }
     };
   }
 
   daily[dayKey].totalMs += durationMs;
+  daily[dayKey].sessionCount = todaySessionCount;
 
   for (const k of Object.keys(breakdown.topicMs)) {
     daily[dayKey].topics[k] += breakdown.topicMs[k];
@@ -308,7 +394,36 @@ async function stop() {
     }
   }
 
+  // Add engagement data if available
+  if (breakdown.fullAnalysis?.engagement) {
+    for (const [k, v] of Object.entries(breakdown.fullAnalysis.engagement)) {
+      daily[dayKey].engagement[k] = (daily[dayKey].engagement[k] || 0) + (v * durationMs);
+    }
+  }
+
   await setDaily(daily);
+
+  // Check for achievements and update gamification stats
+  try {
+    const reflections = await REFLECTION_SYSTEM.getReflections();
+    const stats = await GAMIFICATION.calculateStats(daily, reflections);
+    const newAchievements = await GAMIFICATION.checkAchievements(stats);
+
+    if (newAchievements.length > 0) {
+      // Store notification about new achievements
+      session.newAchievements = newAchievements;
+      await setLastSession(session);
+    }
+
+    // Check for reflection nudges
+    const nudges = await REFLECTION_SYSTEM.checkNudges(session, breakdown.fullAnalysis);
+    if (nudges.length > 0) {
+      session.nudges = nudges;
+      await setLastSession(session);
+    }
+  } catch (error) {
+    console.error('[MindfulFeed] Gamification error:', error);
+  }
 
   // Clear raw session snapshot after saving into last session
   await setRawSession(null);
@@ -394,12 +509,78 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     // Optional: dashboard fetch helper
     if (msg.type === "GET_DASHBOARD") {
-      const [state, daily, last] = await Promise.all([
+      const [state, daily, last, reflections] = await Promise.all([
         getState(),
         getDaily(),
-        new Promise((resolve) => chrome.storage.local.get([LAST_SESSION_KEY], (r) => resolve(r[LAST_SESSION_KEY] || null)))
+        new Promise((resolve) => chrome.storage.local.get([LAST_SESSION_KEY], (r) => resolve(r[LAST_SESSION_KEY] || null))),
+        REFLECTION_SYSTEM.getReflections()
       ]);
-      sendResponse({ ok: true, state, elapsedMs: computeElapsed(state), daily, lastSession: last });
+
+      // Calculate gamification data
+      const stats = await GAMIFICATION.calculateStats(daily, reflections);
+      const totalPoints = await GAMIFICATION.calculateTotalPoints();
+      const level = GAMIFICATION.calculateLevel(totalPoints);
+      const achievements = await GAMIFICATION.getAchievements();
+      const reflectionTrends = await REFLECTION_SYSTEM.analyzeReflectionTrends();
+
+      sendResponse({
+        ok: true,
+        state,
+        elapsedMs: computeElapsed(state),
+        daily,
+        lastSession: last,
+        gamification: {
+          stats,
+          level,
+          totalPoints,
+          achievements
+        },
+        reflectionTrends
+      });
+      return;
+    }
+
+    // Reflection system
+    if (msg.type === "SAVE_REFLECTION") {
+      const reflection = await REFLECTION_SYSTEM.saveReflection(msg.sessionId, msg.responses);
+      sendResponse({ ok: true, reflection });
+      return;
+    }
+
+    if (msg.type === "GET_REFLECTION_PROMPTS") {
+      sendResponse({ ok: true, prompts: REFLECTION_SYSTEM.REFLECTION_PROMPTS });
+      return;
+    }
+
+    // Gamification
+    if (msg.type === "GET_LEADERBOARD") {
+      const daily = await getDaily();
+      const reflections = await REFLECTION_SYSTEM.getReflections();
+      const stats = await GAMIFICATION.calculateStats(daily, reflections);
+      const totalPoints = await GAMIFICATION.calculateTotalPoints();
+      const level = GAMIFICATION.calculateLevel(totalPoints);
+      const leaderboardData = await GAMIFICATION.updateLeaderboard(stats, level);
+
+      sendResponse({ ok: true, ...leaderboardData });
+      return;
+    }
+
+    if (msg.type === "SET_USERNAME") {
+      await GAMIFICATION.setUsername(msg.username);
+      sendResponse({ ok: true });
+      return;
+    }
+
+    // Goals
+    if (msg.type === "SAVE_GOAL") {
+      const goal = await REFLECTION_SYSTEM.saveGoal(msg.goal);
+      sendResponse({ ok: true, goal });
+      return;
+    }
+
+    if (msg.type === "GET_GOALS") {
+      const goals = await REFLECTION_SYSTEM.getGoals();
+      sendResponse({ ok: true, goals });
       return;
     }
 

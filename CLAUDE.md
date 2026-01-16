@@ -2,46 +2,59 @@
 
 ## Project Overview
 
-**MindfulFeed** is a Chrome Manifest V3 browser extension focused on AI-Powered Digital Wellbeing. It tracks user behavior on Instagram's home feed, measuring content consumption patterns, dwell time on posts, and provides analytics about topics and emotional content.
+**MindfulFeed** is a Chrome Manifest V3 browser extension focused on AI-Powered Digital Wellbeing. It tracks user behavior on social media platforms, measuring content consumption patterns, engagement quality, and provides AI-powered analytics with psychological insights, gamification, and reflective practice tools.
 
-- **Version**: 0.0.2
+- **Version**: 1.0.0
 - **License**: MIT
 - **Platform**: Chrome/Chromium browsers (Manifest V3)
-- **Target Site**: Instagram (https://www.instagram.com/*)
+- **Supported Platforms**:
+  - Instagram (https://www.instagram.com/*)
+  - YouTube (https://www.youtube.com/*)
 
 ## Architecture
 
 ### Extension Type
 This is a **Manifest V3 browser extension** with the following components:
-- **Service Worker** (background script) - persistent state management
-- **Content Script** (foreground) - Instagram DOM tracking
-- **Popup UI** - main control interface
-- **Settings Page** - configuration interface (minimal currently)
-- **Summary Dashboard** - analytics visualization
+- **Service Worker** (background script) - persistent state management, AI analysis orchestration
+- **Content Scripts** (foreground) - Instagram & YouTube DOM tracking
+- **Popup UI** - main control interface (Start/Stop)
+- **Reflection Page** - post-session feedback and insights
+- **Summary Dashboard** - comprehensive analytics visualization
+- **Leaderboard** - gamification and community features (planned)
+- **Settings Page** - configuration interface
 
 ### Key Technologies
 - Pure JavaScript (ES6+) - no build tools, no frameworks
 - Chrome Extension APIs (Manifest V3)
 - IntersectionObserver API - for viewport tracking
-- MutationObserver API - for DOM changes
-- Chrome Storage API - for data persistence
+- MutationObserver API - for DOM changes and SPA navigation
+- Chrome Storage API - for data persistence (100% local)
 - SVG - for custom visualizations (donuts, gauges, charts)
+- **AI Analysis Engine** - NLP-based content categorization with multimodal support
+- **Psychological Theory Framework** - Self-Determination Theory, Digital Wellbeing Research
 
 ## File Structure
 
 ```
 /
-├── manifest.json              # Extension manifest (MV3)
-├── service-worker.js          # Background script (main logic)
+├── manifest.json              # Extension manifest (MV3) - v1.0.0
+├── service-worker.js          # Background script (main orchestration)
 ├── service-worker-utils.js    # Background utilities (minimal)
+├── ai-analysis.js             # AI content analysis engine
+├── gamification.js            # Achievements & leaderboard system
+├── reflection-system.js       # Reflection prompts & feedback
 ├── foreground.js              # Content script for Instagram
+├── foreground-youtube.js      # Content script for YouTube
 ├── popup/
-│   ├── popup.html            # Main popup UI
+│   ├── popup.html            # Main popup UI (Start/Stop)
 │   ├── popup.js              # Popup logic
 │   ├── popup.css             # Popup styles
 │   ├── summary.html          # Analytics dashboard
 │   ├── summary.js            # Dashboard logic
-│   └── summary.css           # Dashboard styles
+│   ├── summary.css           # Dashboard styles
+│   ├── reflection.html       # Post-session reflection
+│   ├── reflection.js         # Reflection logic
+│   └── reflection.css        # Reflection styles
 ├── settings/
 │   ├── settings.html         # Settings page
 │   └── settings.css          # Settings styles
@@ -51,8 +64,9 @@ This is a **Manifest V3 browser extension** with the following components:
 │   ├── logo-128.png
 │   ├── logo-main.png
 │   └── logo.svg
+├── README.md                  # User-facing documentation
 ├── LICENSE                    # MIT License
-└── CLAUDE.md                 # This file
+└── CLAUDE.md                 # This file (AI development docs)
 ```
 
 ## Core Components

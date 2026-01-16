@@ -95,6 +95,14 @@ toggleBtn.addEventListener("click", async () => {
     if (!res || !res.ok) return showError(res?.error || "Failed to stop");
     render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
     stopUiTicking();
+
+    // Optionally open reflection page (if session was longer than 2 minutes)
+    if (res.elapsedMs > 120000) {
+      setTimeout(() => {
+        const reflectionUrl = chrome.runtime.getURL("popup/reflection.html");
+        window.open(reflectionUrl, "_blank");
+      }, 500);
+    }
   } else {
     const res = await send("START");
     if (!res || !res.ok) return showError(res?.error || "Failed to start");

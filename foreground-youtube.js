@@ -1,0 +1,331 @@
+// MindfulFeed foreground (content script) for YouTube
+// Tracks video watch time, recommendations clicked, and content consumption
+
+(() => {
+  const VISIBILITY_THRESHOLD = 0.7;     // count when video player >= 70% visible
+  const ACTIVE_CHECK_MS = 1000;         // check video playback state every 1s
+  const PUSH_MS = 3000;                 // send updates to background every 3s
+
+  let tracking = false;
+  let sessionId = null;
+  let startedAt = 0;
+
+  /** @type {Map<string, {title: string, channel: string, videoId: string, firstSeenAt: number, watchMs: number, isAd: boolean}>} */
+  const videos = new Map();
+
+  /** @type {string|null} Current video being watched */
+  let currentVideoId = null;
+  let lastCheckTime = 0;
+  let currentVideoVisible = false;
+
+  let activeCheckTimer = null;
+  let pushTimer = null;
+  let visibilityObserver = null;
+
+  function now() {
+    return Date.now();
+  }
+
+  function safeSend(msg) {
+    try {
+      chrome.runtime.sendMessage(msg, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch (_) {}
+  }
+
+  /**
+   * Extract video ID from YouTube URL
+   */
+  function getVideoIdFromUrl(url = location.href) {
+    try {
+      const urlObj = new URL(url);
+      // Watch page: /watch?v=VIDEO_ID
+      if (urlObj.pathname === '/watch') {
+        return urlObj.searchParams.get('v');
+      }
+      // Shorts: /shorts/VIDEO_ID
+      if (urlObj.pathname.startsWith('/shorts/')) {
+        return urlObj.pathname.split('/')[2];
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /**
+   * Get video metadata
+   */
+  function getVideoMetadata() {
+    const videoId = getVideoIdFromUrl();
+    if (!videoId) return null;
+
+    // Title (multiple selectors for robustness)
+    let title = '';
+    const titleEl = document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+                    document.querySelector('h1.title yt-formatted-string') ||
+                    document.querySelector('#title h1');
+    if (titleEl) {
+      title = titleEl.textContent?.trim() || '';
+    }
+
+    // Channel name
+    let channel = '';
+    const channelEl = document.querySelector('ytd-channel-name a') ||
+                      document.querySelector('#channel-name a') ||
+                      document.querySelector('#upload-info a');
+    if (channelEl) {
+      channel = channelEl.textContent?.trim() || '';
+    }
+
+    // Check if it's an ad
+    const isAd = document.querySelector('.ytp-ad-player-overlay') !== null ||
+                 document.querySelector('.video-ads') !== null;
+
+    return { videoId, title, channel, isAd };
+  }
+
+  /**
+   * Get video player element
+   */
+  function getVideoPlayer() {
+    return document.querySelector('video.html5-main-video');
+  }
+
+  /**
+   * Check if video is currently playing
+   */
+  function isVideoPlaying() {
+    const player = getVideoPlayer();
+    if (!player) return false;
+    return !player.paused && !player.ended && player.readyState > 2;
+  }
+
+  /**
+   * Ensure video entry exists in tracking map
+   */
+  function ensureVideo(metadata) {
+    if (!metadata || !metadata.videoId) return null;
+
+    const key = metadata.videoId;
+    if (!videos.has(key)) {
+      videos.set(key, {
+        videoId: metadata.videoId,
+        title: metadata.title,
+        channel: metadata.channel,
+        isAd: metadata.isAd,
+        firstSeenAt: now(),
+        watchMs: 0
+      });
+    } else {
+      // Update metadata if it was incomplete before
+      const v = videos.get(key);
+      if (v && (!v.title || v.title.length < 5)) {
+        v.title = metadata.title;
+        v.channel = metadata.channel;
+      }
+    }
+    return key;
+  }
+
+  /**
+   * Setup visibility observer for video player
+   */
+  function setupVisibilityObserver() {
+    const player = getVideoPlayer();
+    if (!player) return;
+
+    if (visibilityObserver) {
+      visibilityObserver.disconnect();
+    }
+
+    visibilityObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          currentVideoVisible = entry.intersectionRatio >= VISIBILITY_THRESHOLD;
+        }
+      },
+      {
+        root: null,
+        threshold: [0, 0.25, 0.5, 0.7, 1]
+      }
+    );
+
+    visibilityObserver.observe(player);
+  }
+
+  /**
+   * Active check - accumulate watch time for currently playing video
+   */
+  function activeCheck() {
+    const t = now();
+
+    // Get current video metadata
+    const metadata = getVideoMetadata();
+    if (!metadata || !metadata.videoId) {
+      currentVideoId = null;
+      return;
+    }
+
+    // Check if video changed
+    if (currentVideoId !== metadata.videoId) {
+      currentVideoId = metadata.videoId;
+      ensureVideo(metadata);
+      setupVisibilityObserver();
+      lastCheckTime = t;
+      return;
+    }
+
+    // Accumulate watch time if video is playing and visible
+    if (isVideoPlaying() && currentVideoVisible && lastCheckTime > 0) {
+      const elapsed = t - lastCheckTime;
+      const video = videos.get(currentVideoId);
+      if (video && !video.isAd) { // Don't count ad watch time
+        video.watchMs += elapsed;
+      }
+    }
+
+    lastCheckTime = t;
+  }
+
+  /**
+   * Send update to background service worker
+   */
+  function pushUpdate(finalize = false) {
+    const snapshot = {
+      sessionId,
+      startedAt,
+      finalize,
+      currentVideoId,
+      pageUrl: location.href,
+      platform: 'youtube',
+      videos: Array.from(videos.entries())
+        .filter(([_, v]) => !v.isAd) // Filter out ads
+        .map(([key, v]) => ({
+          key,
+          videoId: v.videoId,
+          title: v.title,
+          channel: v.channel,
+          firstSeenAt: v.firstSeenAt,
+          watchMs: v.watchMs
+        }))
+        .sort((a, b) => b.watchMs - a.watchMs)
+        .slice(0, 40) // Keep top 40 videos
+    };
+
+    safeSend({ type: "MFF_RAW_UPDATE", payload: snapshot });
+  }
+
+  /**
+   * Start tracking YouTube session
+   */
+  function startTracking({ newSessionId, newStartedAt }) {
+    if (tracking) return;
+    tracking = true;
+    sessionId = newSessionId;
+    startedAt = newStartedAt;
+
+    // Reset tracking state
+    videos.clear();
+    currentVideoId = null;
+    lastCheckTime = now();
+    currentVideoVisible = false;
+
+    // Initialize with current video
+    const metadata = getVideoMetadata();
+    if (metadata) {
+      currentVideoId = metadata.videoId;
+      ensureVideo(metadata);
+    }
+
+    // Setup visibility tracking
+    setupVisibilityObserver();
+
+    // Start timers
+    activeCheckTimer = setInterval(activeCheck, ACTIVE_CHECK_MS);
+    pushTimer = setInterval(() => pushUpdate(false), PUSH_MS);
+
+    // Listen for URL changes (SPA navigation)
+    setupNavigationListener();
+
+    // Initial push
+    pushUpdate(false);
+
+    console.log('[MindfulFeed YouTube] Tracking started');
+  }
+
+  /**
+   * Stop tracking YouTube session
+   */
+  function stopTracking() {
+    if (!tracking) return;
+    tracking = false;
+
+    // Final accumulation
+    activeCheck();
+
+    // Send final snapshot
+    pushUpdate(true);
+
+    // Clear timers
+    if (activeCheckTimer) clearInterval(activeCheckTimer);
+    if (pushTimer) clearInterval(pushTimer);
+    activeCheckTimer = null;
+    pushTimer = null;
+
+    // Disconnect observer
+    if (visibilityObserver) {
+      visibilityObserver.disconnect();
+      visibilityObserver = null;
+    }
+
+    console.log('[MindfulFeed YouTube] Tracking stopped');
+  }
+
+  /**
+   * Setup listener for YouTube SPA navigation
+   */
+  function setupNavigationListener() {
+    // YouTube is a SPA - URL changes without page reload
+    let lastUrl = location.href;
+
+    const observer = new MutationObserver(() => {
+      if (location.href !== lastUrl) {
+        lastUrl = location.href;
+
+        // Video changed - reset current video tracking
+        const metadata = getVideoMetadata();
+        if (metadata && metadata.videoId !== currentVideoId) {
+          currentVideoId = metadata.videoId;
+          ensureVideo(metadata);
+          setupVisibilityObserver();
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  // Message listener for control commands
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (!msg || msg.type !== "MFF_CONTROL") return;
+
+    if (msg.action === "START") {
+      startTracking({ newSessionId: msg.sessionId, newStartedAt: msg.startedAt });
+      sendResponse({ ok: true });
+      return;
+    }
+
+    if (msg.action === "STOP") {
+      stopTracking();
+      sendResponse({ ok: true });
+      return;
+    }
+
+    sendResponse({ ok: false, error: "Unknown action" });
+  });
+
+  console.log('[MindfulFeed YouTube] Content script loaded');
+})();

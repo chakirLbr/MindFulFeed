@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "MindFulFeed Extension",
-  "description": "AI-Powered Digital Wellbeing",
-  "version": "0.0.2",
+  "name": "MindfulFeed - AI Digital Wellbeing",
+  "description": "Track, reflect, and improve your social media wellbeing with AI-powered insights, gamification, and mindful engagement",
+  "version": "1.0.0",
   "icons": {
     "16": "logo/logo-16.png",
     "48": "logo/logo-48.png",
@@ -10,11 +10,14 @@
   },
   "options_page": "settings/settings.html",
   "action": {
-    "default_title": "MindFulFeed Extension",
+    "default_title": "MindfulFeed - Track Your Wellbeing",
     "default_popup": "popup/popup.html"
   },
   "permissions": ["storage", "tabs", "scripting"],
-  "host_permissions": ["https://www.instagram.com/*"],
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "https://www.youtube.com/*"
+  ],
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -22,6 +25,10 @@
     {
       "js": ["foreground.js"],
       "matches": ["https://www.instagram.com/*"]
+    },
+    {
+      "js": ["foreground-youtube.js"],
+      "matches": ["https://www.youtube.com/*"]
     }
   ]
 }
