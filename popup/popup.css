@@ -1,0 +1,179 @@
+:root{
+  --base:#DAD5D1;        /* Dust Grey */
+  --primary:#24313A;     /* Jet Black */
+  --highlight:#4E9CA6;   /* Pacific Blue */
+
+  --surface:#ffffff;
+  --border: rgba(36,49,58,0.14);
+  --muted: rgba(36,49,58,0.65);
+  --shadow: 0 18px 55px rgba(36,49,58,0.22);
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+
+/*
+  IMPORTANT: Chrome popups have strict sizing quirks.
+  If we pick an overly wide layout, Chrome can render it as a tiny sliver.
+  So we keep a safe default width and make everything responsive.
+*/
+html{ width: 420px; height: 360px; }
+body{
+  width: 420px;
+  height: 360px;
+  margin: 0;
+  background: var(--surface);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  color: var(--primary);
+  overflow: hidden;
+}
+
+.shell{
+  width: 100%;
+  height: 100%;
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(36,49,58,0.08);
+}
+
+.brand{ display:flex; align-items:center; gap:12px; }
+.brandLogo{
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+.brandName{
+  font-size: 26px;
+  font-weight: 750;
+  letter-spacing: 0.2px;
+}
+
+.closeBtn{
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  font-size: 34px;
+  line-height: 40px;
+  color: rgba(36,49,58,0.5);
+  cursor: pointer;
+  border-radius: 10px;
+}
+.closeBtn:hover{ background: rgba(36,49,58,0.06); }
+
+.grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 18px 18px;
+  height: calc(100% - 73px);
+  overflow: auto;
+}
+
+.panel{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  padding: 10px 12px;
+}
+
+.panelTitle{
+  font-size: 32px;
+  font-weight: 500;
+  margin: 8px 0 20px;
+  letter-spacing: 0.2px;
+}
+
+.panelHint{
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.iconBtn{
+  position: relative;
+  border: none;
+  cursor: pointer;
+  display:grid;
+  place-items:center;
+  color: #ffffff;
+  box-shadow: 0 12px 28px rgba(0,0,0,0.15);
+  transition: transform 0.08s ease, filter 0.2s ease;
+}
+.iconBtn:active{ transform: translateY(1px); }
+.iconBtn:hover{ filter: brightness(0.98); }
+
+.iconBtn.square{
+  width: 104px;
+  height: 104px;
+  border-radius: 28px;
+  background: #0b7cff; /* close to your mock */
+}
+
+.iconBtn.circle{
+  width: 104px;
+  height: 104px;
+  border-radius: 999px;
+  background: var(--highlight);
+}
+
+.iconLayer{ position: relative; z-index: 2; display:grid; place-items:center; }
+
+/* animated ring while tracking */
+.iconBtn.circle .ring{
+  position:absolute;
+  inset: -8px;
+  border-radius: 999px;
+  border: 4px solid rgba(78,156,166,0.25);
+  z-index: 1;
+  opacity: 0;
+}
+
+.iconBtn.circle.tracking .ring{
+  opacity: 1;
+  border-color: rgba(78,156,166,0.35);
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin{
+  0%{ transform: rotate(0deg); border-top-color: rgba(78,156,166,0.95); }
+  50%{ border-top-color: rgba(78,156,166,0.55); }
+  100%{ transform: rotate(360deg); border-top-color: rgba(78,156,166,0.95); }
+}
+
+.time{
+  margin-top: 18px;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 1px;
+}
+
+.status{
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.status.tracking{ color: var(--highlight); }
+
+/* make it usable on smaller widths if Chrome clamps */
+@media (max-width: 420px){
+  html, body{ width: 360px; }
+}
+
+@media (max-width: 360px){
+  html, body{ width: 320px; }
+  .grid{ grid-template-columns: 1fr; }
+  .panelTitle{ font-size: 28px; margin-bottom: 14px; }
+}

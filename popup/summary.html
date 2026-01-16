@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Analytics</title>
+    <link rel="stylesheet" href="summary.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="../logo/logo-main.png" alt="MindfulFeed" />
+        <div>
+          <div class="name">MindfulFeed</div>
+          <div class="sub">Report</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="refreshBtn" class="btn">Refresh</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="gridTop">
+        <article class="card">
+          <div class="cardHeader">
+            <h2>Today's Analytics</h2>
+          </div>
+          <div class="topicWrap">
+            <div class="donut" id="topicDonut" aria-label="Topics donut chart"></div>
+            <div class="legend" id="topicLegend"></div>
+          </div>
+        </article>
+
+        <article class="card">
+          <div class="cardHeader">
+            <h2>Emotional Analytics</h2>
+          </div>
+          <div class="emoList" id="emoList"></div>
+        </article>
+      </section>
+
+      <article class="card">
+        <div class="cardHeader row">
+          <h2>Statistics chart</h2>
+          <div class="periodTabs" id="periodTabs" aria-label="Statistics period">
+            <button class="tab" data-period="day" type="button">Day</button>
+            <button class="tab active" data-period="week" type="button">Week</button>
+            <button class="tab" data-period="month" type="button">Month</button>
+          </div>
+          <div class="legendRow" id="statsLegend"></div>
+        </div>
+        <div class="stats" id="stats"></div>
+      </article>
+
+      <section class="gridBottom" id="gauges"></section>
+
+      <div class="footnote" id="footnote"></div>
+    </main>
+
+    <details class="debug">
+      <summary>Debug (temporary): last session posts</summary>
+      <pre id="rawDump">No data yet.</pre>
+    </details>
+
+    <script src="summary.js"></script>
+  </body>
+</html>
