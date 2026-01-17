@@ -76,17 +76,17 @@ const AI_ANALYSIS = (() => {
   }
 
   /**
-   * AI-powered analysis using OpenAI GPT-4 API (direct or via Puter.js)
+   * AI-powered analysis using OpenAI API (direct or via Puter.js)
    * @param {Array} posts - Posts to analyze
    * @param {string} apiKey - OpenAI API key or Puter app token
-   * @param {boolean} usePuter - Whether to use Puter.js proxy for free unlimited API access
+   * @param {boolean} usePuter - Whether to use Puter.js proxy for free unlimited GPT-5 access
    */
   async function analyzeWithAI(posts, apiKey, usePuter = false) {
     try {
       if (usePuter) {
-        console.log('[AI Analysis] Using Puter.js FREE unlimited API...');
+        console.log('[AI Analysis] Using Puter.js FREE unlimited GPT-5 API...');
       } else {
-        console.log('[AI Analysis] Using OpenAI GPT-4 direct API...');
+        console.log('[AI Analysis] Using OpenAI direct API...');
       }
 
       // Prepare analysis data
@@ -140,7 +140,7 @@ Format:
           interface: 'chat-completion',
           method: 'complete',
           args: {
-            model: 'gpt-4-turbo-preview',
+            model: 'gpt-5',
             messages: messages,
             temperature: 0.3,
             response_format: { type: 'json_object' }
@@ -194,7 +194,7 @@ Format:
         engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
-        analysisMethod: usePuter ? 'puter-gpt4-free' : 'openai-gpt4',
+        analysisMethod: usePuter ? 'puter-gpt5-free' : 'openai-direct',
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,
           aiResult.overall.emotions,
