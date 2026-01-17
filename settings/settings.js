@@ -74,7 +74,17 @@ document.getElementById('testApi').addEventListener('click', async () => {
       showStatus('✅ API key is valid! You can now use AI-powered analysis.', 'success');
     } else {
       const error = await response.json();
-      showStatus(`❌ API key invalid: ${error.error?.message || 'Unknown error'}`, 'error');
+      const errorMsg = error.error?.message || 'Unknown error';
+
+      // Check if it's a quota/billing error
+      if (errorMsg.includes('quota') || errorMsg.includes('billing')) {
+        showStatus(
+          `❌ No credits available. Add credits at: platform.openai.com/account/billing 💳 (Error: ${errorMsg})`,
+          'error'
+        );
+      } else {
+        showStatus(`❌ API Error: ${errorMsg}`, 'error');
+      }
     }
   } catch (error) {
     showStatus(`❌ Error testing API: ${error.message}`, 'error');
@@ -88,10 +98,11 @@ function showStatus(message, type) {
   statusEl.className = `status-message ${type}`;
   statusEl.classList.remove('hidden');
 
-  // Auto-hide after 5 seconds
+  // Auto-hide after different durations based on type
+  const duration = type === 'error' ? 15000 : 5000; // Errors stay 15 seconds
   setTimeout(() => {
     statusEl.classList.add('hidden');
-  }, 5000);
+  }, duration);
 }
 
 // Initialize
