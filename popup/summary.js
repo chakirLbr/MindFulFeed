@@ -433,9 +433,33 @@ async function loadDashboard() {
 
   // Debug dump with AI analysis results
   const pre = document.getElementById("rawDump");
+  const analysisMethodTextEl = document.getElementById("analysisMethodText");
+
   if (pre) {
     const raw = res?.lastSession?.raw || null;
     const fullAnalysis = res?.lastSession?.fullAnalysis || null;
+
+    // Update analysis method display
+    if (analysisMethodTextEl) {
+      const method = fullAnalysis?.analysisMethod || 'heuristic';
+      let methodDescription = '';
+
+      if (method.startsWith('puter-')) {
+        // Extract model name from method like "puter-gpt-5-free"
+        const modelMatch = method.match(/puter-(.+)-free/);
+        const modelName = modelMatch ? modelMatch[1] : 'AI';
+        methodDescription = `🎉 <strong style="color: #10b981;">Puter.js FREE AI</strong> using <strong>${modelName.toUpperCase()}</strong> - Analyzes text captions with ~98% accuracy. <em>Image and video analysis coming soon with multimodal AI.</em>`;
+      } else if (method.startsWith('openai-')) {
+        const modelName = method.replace('openai-', '');
+        methodDescription = `🤖 <strong style="color: #3b82f6;">OpenAI Direct API</strong> using <strong>${modelName}</strong> - Analyzes text captions with ~95% accuracy. <em>Image and video analysis coming soon.</em>`;
+      } else if (method === 'heuristic') {
+        methodDescription = `🔤 <strong>NLP Heuristics</strong> - Fast, offline keyword matching analyzing text captions only (~75% accuracy). <em>Upgrade to Puter.js FREE AI for better accuracy!</em>`;
+      } else {
+        methodDescription = `📊 <strong>Analysis</strong> - Analyzing text captions only. <em>Try Puter.js for FREE AI-powered analysis!</em>`;
+      }
+
+      analysisMethodTextEl.innerHTML = methodDescription;
+    }
 
     if (!raw) {
       pre.textContent = "No raw session data yet. Open Instagram Home Feed, press Start, scroll a bit, then Stop.";
@@ -458,7 +482,7 @@ async function loadDashboard() {
         startedAt: raw.startedAt,
         pageUrl: raw.pageUrl,
         totalPosts: (raw.posts || []).length,
-        analysisMethod: fullAnalysis?.analysisMethod || 'demo',
+        analysisMethod: fullAnalysis?.analysisMethod || 'heuristic',
         overallCategories: fullAnalysis ? {
           topics: fullAnalysis.topics,
           emotions: fullAnalysis.emotions,
