@@ -201,6 +201,12 @@ header h1 {
   border: 1px solid #fca5a5;
 }
 
+.status-message.info {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #93c5fd;
+}
+
 .radio-group {
   display: flex;
   flex-direction: column;

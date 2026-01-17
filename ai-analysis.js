@@ -49,20 +49,25 @@ const AI_ANALYSIS = (() => {
     if (!apiKey) {
       // Try to get from storage
       try {
-        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode']);
-        const storedKey = settings.mf_openai_api_key;
+        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_use_puter', 'mf_puter_token']);
         const mode = settings.mf_analysis_mode || 'heuristic';
 
-        if (mode === 'ai' && storedKey && storedKey.startsWith('sk-')) {
+        // Check if using Puter.js (FREE!)
+        if (mode === 'puter' && settings.mf_puter_token) {
+          console.log('[AI Analysis] Using Puter.js FREE API');
+          return await analyzeWithAI(posts, settings.mf_puter_token, true);
+        }
+        // Check if using direct OpenAI
+        else if (mode === 'ai' && settings.mf_openai_api_key && settings.mf_openai_api_key.startsWith('sk-')) {
           console.log('[AI Analysis] Using stored OpenAI API key');
-          return await analyzeWithAI(posts, storedKey);
+          return await analyzeWithAI(posts, settings.mf_openai_api_key, false);
         }
       } catch (e) {
         console.log('[AI Analysis] Could not read settings, using heuristics');
       }
     } else if (apiKey.startsWith('sk-')) {
-      // API key provided directly
-      return await analyzeWithAI(posts, apiKey);
+      // API key provided directly (OpenAI)
+      return await analyzeWithAI(posts, apiKey, false);
     }
 
     // Default: use enhanced heuristic analysis
@@ -71,11 +76,18 @@ const AI_ANALYSIS = (() => {
   }
 
   /**
-   * AI-powered analysis using OpenAI GPT-4 API
+   * AI-powered analysis using OpenAI GPT-4 API (direct or via Puter.js)
+   * @param {Array} posts - Posts to analyze
+   * @param {string} apiKey - OpenAI API key or Puter app token
+   * @param {boolean} usePuter - Whether to use Puter.js proxy for free unlimited API access
    */
-  async function analyzeWithAI(posts, apiKey) {
+  async function analyzeWithAI(posts, apiKey, usePuter = false) {
     try {
-      console.log('[AI Analysis] Using OpenAI GPT-4 for enhanced analysis...');
+      if (usePuter) {
+        console.log('[AI Analysis] Using Puter.js FREE unlimited API...');
+      } else {
+        console.log('[AI Analysis] Using OpenAI GPT-4 direct API...');
+      }
 
       // Prepare analysis data
       const topPosts = posts.slice(0, 20); // Analyze top 20 posts
@@ -103,38 +115,77 @@ Format:
   }
 }`;
 
-      // Call OpenAI API
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.'
         },
-        body: JSON.stringify({
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      let apiUrl, headers, requestBody;
+
+      if (usePuter) {
+        // Puter.js proxy endpoint - FREE unlimited access!
+        apiUrl = 'https://api.puter.com/drivers/call';
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}` // Puter app token
+        };
+        requestBody = {
+          driver: 'openai',
+          interface: 'chat-completion',
+          method: 'complete',
+          args: {
+            model: 'gpt-4-turbo-preview',
+            messages: messages,
+            temperature: 0.3,
+            response_format: { type: 'json_object' }
+          }
+        };
+      } else {
+        // Direct OpenAI API endpoint
+        apiUrl = 'https://api.openai.com/v1/chat/completions';
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}` // OpenAI API key
+        };
+        requestBody = {
           model: 'gpt-4-turbo-preview',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
+          messages: messages,
           temperature: 0.3,
           response_format: { type: 'json_object' }
-        })
+        };
+      }
+
+      // Call API
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`API error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
-      const aiResult = JSON.parse(data.choices[0].message.content);
 
-      console.log('[AI Analysis] OpenAI response received:', aiResult);
+      // Parse response differently for Puter vs OpenAI
+      let aiResult;
+      if (usePuter) {
+        // Puter wraps the response in a "result" field
+        aiResult = JSON.parse(data.result.choices[0].message.content);
+      } else {
+        // Direct OpenAI response
+        aiResult = JSON.parse(data.choices[0].message.content);
+      }
+
+      console.log('[AI Analysis] AI response received:', aiResult);
 
       // Convert to our format
       return {
@@ -143,7 +194,7 @@ Format:
         engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
-        analysisMethod: 'openai-gpt4',
+        analysisMethod: usePuter ? 'puter-gpt4-free' : 'openai-gpt4',
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,
           aiResult.overall.emotions,
@@ -153,7 +204,7 @@ Format:
       };
 
     } catch (error) {
-      console.error('[AI Analysis] OpenAI API error, falling back to heuristics:', error);
+      console.error('[AI Analysis] API error, falling back to heuristics:', error);
       return await analyzeWithHeuristics(posts);
     }
   }

@@ -2,29 +2,69 @@
 
 const STORAGE_KEY = 'mf_openai_api_key';
 const MODE_KEY = 'mf_analysis_mode';
+const PUTER_TOKEN_KEY = 'mf_puter_token';
 
 // Load settings on page load
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY]);
+  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, PUTER_TOKEN_KEY]);
 
   // Load API key
   if (settings[STORAGE_KEY]) {
     document.getElementById('apiKey').value = settings[STORAGE_KEY];
   }
 
+  // Load Puter token
+  if (settings[PUTER_TOKEN_KEY]) {
+    document.getElementById('puterToken').value = settings[PUTER_TOKEN_KEY];
+  }
+
   // Load analysis mode
   const mode = settings[MODE_KEY] || 'heuristic';
   const radio = document.querySelector(`input[name="analysisMode"][value="${mode}"]`);
-  if (radio) radio.checked = true;
+  if (radio) {
+    radio.checked = true;
+    updateModeVisibility(mode);
+  }
 }
+
+// Update visibility based on selected mode
+function updateModeVisibility(mode) {
+  const puterSection = document.getElementById('puterTokenSection');
+
+  if (mode === 'puter') {
+    puterSection.classList.remove('hidden');
+  } else {
+    puterSection.classList.add('hidden');
+  }
+}
+
+// Listen for mode changes
+document.querySelectorAll('input[name="analysisMode"]').forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    updateModeVisibility(e.target.value);
+  });
+});
 
 // Save settings
 document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
+  const puterToken = document.getElementById('puterToken').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
+
+  // Validate based on mode
+  if (mode === 'ai' && !apiKey) {
+    showStatus('⚠️ Please enter an OpenAI API key for AI mode', 'error');
+    return;
+  }
+
+  if (mode === 'puter' && !puterToken) {
+    showStatus('⚠️ Please enter a Puter app token for Puter mode', 'error');
+    return;
+  }
 
   await chrome.storage.local.set({
     [STORAGE_KEY]: apiKey,
+    [PUTER_TOKEN_KEY]: puterToken,
     [MODE_KEY]: mode
   });
 
@@ -45,41 +85,103 @@ document.getElementById('toggleApiKey').addEventListener('click', () => {
   }
 });
 
+// Toggle Puter token visibility
+document.getElementById('togglePuterToken').addEventListener('click', () => {
+  const input = document.getElementById('puterToken');
+  const button = document.getElementById('togglePuterToken');
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    button.textContent = 'Hide';
+  } else {
+    input.type = 'password';
+    button.textContent = 'Show';
+  }
+});
+
 // Test API
 document.getElementById('testApi').addEventListener('click', async () => {
-  const apiKey = document.getElementById('apiKey').value.trim();
+  const mode = document.querySelector('input[name="analysisMode"]:checked').value;
 
-  if (!apiKey) {
-    showStatus('⚠️ Please enter an API key first', 'error');
+  if (mode === 'heuristic') {
+    showStatus('ℹ️ Heuristic mode does not require API testing (works offline)', 'info');
     return;
   }
 
-  showStatus('🧪 Testing API key...', 'info');
+  const apiKey = mode === 'ai' ? document.getElementById('apiKey').value.trim() : null;
+  const puterToken = mode === 'puter' ? document.getElementById('puterToken').value.trim() : null;
+
+  if (mode === 'ai' && !apiKey) {
+    showStatus('⚠️ Please enter an OpenAI API key first', 'error');
+    return;
+  }
+
+  if (mode === 'puter' && !puterToken) {
+    showStatus('⚠️ Please enter a Puter app token first', 'error');
+    return;
+  }
+
+  showStatus(`🧪 Testing ${mode === 'puter' ? 'Puter.js FREE' : 'OpenAI'} API...`, 'info');
 
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
+    let apiUrl, headers, requestBody;
+
+    if (mode === 'puter') {
+      // Test Puter.js proxy
+      apiUrl = 'https://api.puter.com/drivers/call';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${puterToken}`
+      };
+      requestBody = {
+        driver: 'openai',
+        interface: 'chat-completion',
+        method: 'complete',
+        args: {
+          model: 'gpt-3.5-turbo',
+          messages: [{role: 'user', content: 'Say "API test successful"'}],
+          max_tokens: 10
+        }
+      };
+    } else {
+      // Test direct OpenAI
+      apiUrl = 'https://api.openai.com/v1/chat/completions';
+      headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
+      };
+      requestBody = {
         model: 'gpt-3.5-turbo',
         messages: [{role: 'user', content: 'Say "API test successful"'}],
         max_tokens: 10
-      })
+      };
+    }
+
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
     });
 
     if (response.ok) {
-      showStatus('✅ API key is valid! You can now use AI-powered analysis.', 'success');
+      if (mode === 'puter') {
+        showStatus('✅ Puter token is valid! You now have FREE unlimited AI access! 🎉', 'success');
+      } else {
+        showStatus('✅ API key is valid! You can now use AI-powered analysis.', 'success');
+      }
     } else {
       const error = await response.json();
-      const errorMsg = error.error?.message || 'Unknown error';
+      const errorMsg = error.error?.message || error.message || 'Unknown error';
 
-      // Check if it's a quota/billing error
-      if (errorMsg.includes('quota') || errorMsg.includes('billing')) {
+      // Check if it's a quota/billing error (OpenAI only)
+      if (mode === 'ai' && (errorMsg.includes('quota') || errorMsg.includes('billing'))) {
         showStatus(
           `❌ No credits available. Add credits at: platform.openai.com/account/billing 💳 (Error: ${errorMsg})`,
+          'error'
+        );
+      } else if (mode === 'puter' && errorMsg.includes('token')) {
+        showStatus(
+          `❌ Invalid Puter token. Get a FREE token at: puter.com/app/dev-center (Error: ${errorMsg})`,
           'error'
         );
       } else {
