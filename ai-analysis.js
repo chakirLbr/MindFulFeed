@@ -148,6 +148,7 @@ Format:
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
         analysisMethod: `puter-${model}-free`,
+        perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,
           aiResult.overall.emotions,
@@ -242,6 +243,7 @@ Format:
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
         analysisMethod: `openai-${model}`,
+        perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,
           aiResult.overall.emotions,
@@ -305,6 +307,7 @@ Format:
       totalDwellMs: totalTime,
       postsAnalyzed: posts.length,
       analysisMethod: 'heuristic',
+      perPostAnalysis: [], // Heuristics don't provide per-post data
       insights: generatePsychologicalInsights(topicScores, emotionScores, engagementScores, totalTime)
     };
   }

@@ -465,14 +465,23 @@ async function loadDashboard() {
       pre.textContent = "No raw session data yet. Open Instagram Home Feed, press Start, scroll a bit, then Stop.";
     } else {
       // Show last 30 posts with AI categorization
+      // Use actual AI results if available, otherwise fall back to heuristics
+      const perPostAI = fullAnalysis?.perPostAnalysis || [];
+      const hasAIResults = perPostAI.length > 0;
+
       const topPosts = (raw.posts || []).slice(0, 30).map((p, index) => {
-        const postAnalysis = analyzePostDebug(p.caption);
+        // Use actual AI categorization if available, otherwise use heuristics
+        const postAnalysis = hasAIResults && perPostAI[index]
+          ? perPostAI[index]  // Use real AI results!
+          : analyzePostDebug(p.caption);  // Fallback to heuristics
+
         return {
           index: index + 1,
           dwellSeconds: Math.round(p.dwellMs / 1000),
           href: p.href,
           caption: p.caption,
-          aiCategories: postAnalysis
+          aiCategories: postAnalysis,
+          analysisSource: hasAIResults && perPostAI[index] ? 'AI' : 'heuristic'
         };
       });
 
