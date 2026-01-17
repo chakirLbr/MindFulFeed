@@ -1,73 +1,116 @@
 /**
  * Puter.js Loader for MindfulFeed Extension
  *
- * This file loads the Puter.js library for FREE unlimited AI access.
+ * Loads Puter.js library for FREE unlimited AI access.
  * No API keys or authentication required!
- *
- * SETUP INSTRUCTIONS:
- * Download https://js.puter.com/v2/puter.min.js and save it in this directory
- * OR the library will be loaded dynamically (may have CSP restrictions)
  */
 
-// For Chrome extension compatibility, we'll create a simple wrapper
-// that uses fetch-based approach until puter.js is fully integrated
+// Try to load Puter.js from CDN for service worker use
+let puterLoaded = false;
+try {
+  // Attempt to load Puter.js library from CDN
+  // Note: This might not work due to CSP in service workers
+  importScripts('https://js.puter.com/v2/puter.js');
+  puterLoaded = true;
+  console.log('[Puter] ✅ Puter.js library loaded from CDN');
+} catch (e) {
+  console.log('[Puter] ⚠️ Could not load Puter.js from CDN:', e.message);
+  console.log('[Puter] Will use direct API approach instead');
+}
 
 const PuterAI = (() => {
   /**
    * Check if puter library is loaded globally
    */
   function isPuterLoaded() {
-    return typeof puter !== 'undefined' && puter.ai;
+    return puterLoaded && typeof puter !== 'undefined' && puter.ai;
   }
 
   /**
-   * Chat with AI using Puter.js (if available)
-   * Falls back to fetch-based approach if library not loaded
+   * Chat with AI using Puter.js
    */
   async function chat(options) {
     // If Puter.js library is loaded, use it directly
     if (isPuterLoaded()) {
       console.log('[Puter] Using Puter.js library directly');
-      return await puter.ai.chat(options);
+      try {
+        return await puter.ai.chat(options);
+      } catch (e) {
+        console.error('[Puter] Library call failed:', e);
+        throw e;
+      }
     }
 
-    // Fallback: Use fetch-based approach (no auth needed according to docs)
-    // This is a simplified implementation based on Puter.js behavior
-    console.log('[Puter] Using fetch-based Puter API (no auth)');
-
-    const response = await fetch('https://api.puter.com/drivers/call', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-        // NO Authorization header needed! Puter.js is free to use
-      },
-      body: JSON.stringify({
-        driver: options.driver || 'openai',
-        interface: 'chat-completion',
-        method: 'complete',
-        args: {
-          model: options.model,
-          messages: options.messages,
-          temperature: options.temperature || 0.3,
-          response_format: options.response_format
-        }
-      })
+    // Fallback: Use direct API approach
+    console.log('[Puter] Using direct Puter API (no library)');
+    console.log('[Puter] Request:', {
+      driver: options.driver,
+      model: options.model,
+      messagesCount: options.messages?.length
     });
 
-    if (!response.ok) {
-      throw new Error(`Puter API error: ${response.status}`);
+    try {
+      const response = await fetch('https://api.puter.com/drivers/call', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+          // According to Puter docs: no auth needed for free access
+        },
+        body: JSON.stringify({
+          driver: options.driver || 'openai',
+          interface: 'chat-completion',
+          method: 'complete',
+          args: {
+            model: options.model,
+            messages: options.messages,
+            temperature: options.temperature || 0.3,
+            response_format: options.response_format
+          }
+        })
+      });
+
+      console.log('[Puter] API response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Puter] API error response:', errorText);
+        throw new Error(`Puter API error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('[Puter] API response data structure:', {
+        hasResult: !!data.result,
+        hasChoices: !!data.choices,
+        keys: Object.keys(data)
+      });
+
+      // Try different response formats
+      let content;
+      if (data.result?.choices?.[0]?.message?.content) {
+        content = data.result.choices[0].message.content;
+      } else if (data.choices?.[0]?.message?.content) {
+        content = data.choices[0].message.content;
+      } else if (data.result) {
+        content = data.result;
+      } else {
+        console.error('[Puter] Unexpected response format:', data);
+        throw new Error('Unexpected Puter API response format');
+      }
+
+      console.log('[Puter] Extracted content preview:', content.substring(0, 100));
+
+      // Return in format compatible with OpenAI
+      return {
+        choices: [{
+          message: {
+            content: content
+          }
+        }]
+      };
+    } catch (e) {
+      console.error('[Puter] Complete error details:', e);
+      throw e;
     }
-
-    const data = await response.json();
-
-    // Return in format compatible with OpenAI
-    return {
-      choices: [{
-        message: {
-          content: data.result?.choices?.[0]?.message?.content || data.result
-        }
-      }]
-    };
   }
 
   return { chat, isPuterLoaded };
