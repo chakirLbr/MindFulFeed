@@ -41,37 +41,119 @@ const AI_ANALYSIS = (() => {
    * @returns {Promise<Object>} Analysis results
    */
   async function analyzePostsBatch(posts, apiKey = null) {
-    // For now, we'll implement a sophisticated heuristic-based analysis
-    // In production, this would call Claude API or similar multimodal LLM
-
     if (!posts || posts.length === 0) {
       return createEmptyAnalysis();
     }
 
-    // If API key provided, use real AI analysis
-    if (apiKey && apiKey.startsWith('sk-')) {
+    // Check if API key is provided or stored in settings
+    if (!apiKey) {
+      // Try to get from storage
+      try {
+        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode']);
+        const storedKey = settings.mf_openai_api_key;
+        const mode = settings.mf_analysis_mode || 'heuristic';
+
+        if (mode === 'ai' && storedKey && storedKey.startsWith('sk-')) {
+          console.log('[AI Analysis] Using stored OpenAI API key');
+          return await analyzeWithAI(posts, storedKey);
+        }
+      } catch (e) {
+        console.log('[AI Analysis] Could not read settings, using heuristics');
+      }
+    } else if (apiKey.startsWith('sk-')) {
+      // API key provided directly
       return await analyzeWithAI(posts, apiKey);
     }
 
-    // Otherwise use enhanced heuristic analysis
+    // Default: use enhanced heuristic analysis
+    console.log('[AI Analysis] Using enhanced heuristic analysis');
     return await analyzeWithHeuristics(posts);
   }
 
   /**
-   * AI-powered analysis using Claude API or similar service
+   * AI-powered analysis using OpenAI GPT-4 API
    */
   async function analyzeWithAI(posts, apiKey) {
     try {
-      // Prepare prompts for multimodal analysis
-      const analysisPrompt = createAnalysisPrompt(posts);
+      console.log('[AI Analysis] Using OpenAI GPT-4 for enhanced analysis...');
 
-      // Note: In production, integrate with Claude API here
-      // For now, return enhanced heuristic analysis
-      console.log('[AI Analysis] API integration placeholder - using enhanced heuristics');
-      return await analyzeWithHeuristics(posts);
+      // Prepare analysis data
+      const topPosts = posts.slice(0, 20); // Analyze top 20 posts
+      const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
+
+      const prompt = `Analyze these ${topPosts.length} social media posts and categorize them:
+
+POSTS:
+${captions}
+
+Provide a JSON response with:
+1. For each post (by number), classify:
+   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+   - emotion: Positive, Negative, Neutral, or Mixed
+
+2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
+${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
+
+Format:
+{
+  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "overall": {
+    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
+  }
+}`;
+
+      // Call OpenAI API
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4-turbo-preview',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const aiResult = JSON.parse(data.choices[0].message.content);
+
+      console.log('[AI Analysis] OpenAI response received:', aiResult);
+
+      // Convert to our format
+      return {
+        topics: aiResult.overall.topics,
+        emotions: aiResult.overall.emotions,
+        engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
+        totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
+        postsAnalyzed: posts.length,
+        analysisMethod: 'openai-gpt4',
+        insights: generatePsychologicalInsights(
+          aiResult.overall.topics,
+          aiResult.overall.emotions,
+          { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
+          posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
+        )
+      };
 
     } catch (error) {
-      console.error('[AI Analysis] Error:', error);
+      console.error('[AI Analysis] OpenAI API error, falling back to heuristics:', error);
       return await analyzeWithHeuristics(posts);
     }
   }
@@ -133,7 +215,9 @@ const AI_ANALYSIS = (() => {
    * Classify content topic based on keywords and patterns
    */
   function classifyTopic(caption) {
+    // Enhanced patterns with tournament names, sport emojis, and vs patterns
     const patterns = {
+      "Sport": /\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running|cup|tournament|AFCON|FIFA|UEFA|NBA|NFL|MLB|NHL|olympics|premier league|champions league|world cup|super bowl|grand slam|vs\.?|versus|⚽|🏀|🏈|⛹️|🏆|🥇)\b/i,
       "Education": /\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson|university|college|school)\b/i,
       "Entertainment": /\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment|movie|film|series|show|watch)\b/i,
       "Social Connection": /\b(friend|family|love|together|relationship|community|connection|meet|gathering|celebration|wedding|birthday)\b/i,
@@ -141,10 +225,27 @@ const AI_ANALYSIS = (() => {
       "Inspiration": /\b(inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation|hustle|grind|mindset)\b/i,
       "Shopping & Commerce": /\b(buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style|outfit|clothing|wear)\b/i,
       "Health & Wellness": /\b(health|fitness|workout|yoga|meditation|wellbeing|mental health|self care|nutrition|exercise|gym|training|diet|wellness)\b/i,
-      "Creative Arts": /\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty)\b/i,
-      "Sport": /\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running)\b/i
+      "Creative Arts": /\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty)\b/i
     };
 
+    // Check Sport FIRST for highest priority (most specific patterns)
+
+    // Pattern 1: "Team1 vs Team2" or "Country1 vs Country2"
+    if (/\b\w+\s+(vs\.?|versus)\s+\w+/i.test(caption)) {
+      return "Sport";
+    }
+
+    // Pattern 2: Sport hashtags
+    if (/#(AFCON|FIFA|UEFA|NBA|NFL|WorldCup|Olympics|ChampionsLeague|PremierLeague)/i.test(caption)) {
+      return "Sport";
+    }
+
+    // Pattern 3: Country flags with vs (🇲🇦 vs 🇳🇬)
+    if (/[\u{1F1E6}-\u{1F1FF}].*\b(vs\.?|versus)\b.*[\u{1F1E6}-\u{1F1FF}]/iu.test(caption)) {
+      return "Sport";
+    }
+
+    // Check all patterns with keyword matching
     let bestMatch = null;
     let bestScore = 0;
 

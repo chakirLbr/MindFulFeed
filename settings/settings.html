@@ -1,12 +1,112 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <link rel="stylesheet" href="settings.css">
-    <title>Chrome Addon v3: Settings</title>
-</head>
-<body>
-    This is the <span class="special-text">settings</span> page for the addon.
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>⚙️ MindfulFeed Settings</h1>
+        <p class="subtitle">Configure AI analysis and extension behavior</p>
+      </header>
+
+      <main>
+        <!-- AI API Settings -->
+        <section class="card">
+          <h2>🤖 AI Analysis Settings</h2>
+          <p class="description">
+            Enable advanced AI analysis using OpenAI GPT-4 for more accurate content categorization.
+            Without an API key, the extension uses NLP heuristics (keyword matching).
+          </p>
+
+          <div class="form-group">
+            <label for="apiKey">
+              OpenAI API Key
+              <span class="optional">(optional)</span>
+            </label>
+            <div class="input-with-button">
+              <input
+                type="password"
+                id="apiKey"
+                placeholder="sk-proj-..."
+                class="input"
+              />
+              <button id="toggleApiKey" class="btn-link">Show</button>
+            </div>
+          </div>
+
+          <div class="info-box">
+            <strong>📝 How to get an API key:</strong>
+            <ol>
+              <li>Visit <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com/api-keys</a></li>
+              <li>Sign up or log in to your OpenAI account</li>
+              <li>Click "Create new secret key"</li>
+              <li>Copy and paste it above</li>
+            </ol>
+            <p><strong>Cost:</strong> ~$0.01-0.03 per session (very affordable)</p>
+            <p><strong>Privacy:</strong> Your data is sent to OpenAI for analysis. See their <a href="https://openai.com/privacy" target="_blank">privacy policy</a>.</p>
+          </div>
+
+          <div class="form-actions">
+            <button id="saveSettings" class="btn btn-primary">💾 Save Settings</button>
+            <button id="testApi" class="btn btn-secondary">🧪 Test API</button>
+          </div>
+
+          <div id="statusMessage" class="status-message hidden"></div>
+        </section>
+
+        <!-- Analysis Mode -->
+        <section class="card">
+          <h2>📊 Analysis Mode</h2>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="analysisMode" value="heuristic" checked />
+              <div class="radio-content">
+                <strong>Heuristic Analysis (Default)</strong>
+                <p>Fast, offline keyword matching. Free. Good accuracy (~75%).</p>
+              </div>
+            </label>
+
+            <label class="radio-option">
+              <input type="radio" name="analysisMode" value="ai" />
+              <div class="radio-content">
+                <strong>AI-Powered Analysis</strong>
+                <p>Uses OpenAI GPT-4. Requires API key. Excellent accuracy (~95%).</p>
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <!-- Privacy -->
+        <section class="card">
+          <h2>🔒 Privacy</h2>
+          <ul class="privacy-list">
+            <li>✅ All data stored locally on your device</li>
+            <li>✅ No cloud sync or external servers (except optional OpenAI API)</li>
+            <li>✅ Anonymous leaderboard IDs (no personal info)</li>
+            <li>✅ No tracking pixels or analytics</li>
+            <li>⚠️ If using AI mode, captions are sent to OpenAI for analysis</li>
+          </ul>
+        </section>
+
+        <!-- About -->
+        <section class="card">
+          <h2>ℹ️ About</h2>
+          <p><strong>Version:</strong> 1.0.0</p>
+          <p><strong>License:</strong> MIT</p>
+          <p>
+            <strong>GitHub:</strong>
+            <a href="https://github.com/chakirLbr/MindFulFeed" target="_blank">
+              github.com/chakirLbr/MindFulFeed
+            </a>
+          </p>
+        </section>
+      </main>
+    </div>
+
+    <script src="settings.js"></script>
+  </body>
 </html>

@@ -476,11 +476,23 @@ function analyzePostDebug(caption) {
 
   const lowerCaption = caption.toLowerCase();
 
-  // Topic detection (same logic as ai-analysis.js) - CHECK IN ORDER OF SPECIFICITY
+  // Topic detection (same logic as ai-analysis.js) - CHECK SPORT PATTERNS FIRST
   let topic = 'Unknown';
 
-  // Check Sport first (most specific)
-  if (/\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running)\b/i.test(caption)) {
+  // Pattern 1: "Team1 vs Team2" format (e.g., "Morocco vs Nigeria")
+  if (/\b\w+\s+(vs\.?|versus)\s+\w+/i.test(caption)) {
+    topic = 'Sport';
+  }
+  // Pattern 2: Sport hashtags (AFCON, FIFA, etc.)
+  else if (/#(AFCON|FIFA|UEFA|NBA|NFL|WorldCup|Olympics|ChampionsLeague|PremierLeague)/i.test(caption)) {
+    topic = 'Sport';
+  }
+  // Pattern 3: Country flags with vs (🇲🇦 vs 🇳🇬)
+  else if (/[\u{1F1E6}-\u{1F1FF}].*\b(vs\.?|versus)\b.*[\u{1F1E6}-\u{1F1FF}]/iu.test(caption)) {
+    topic = 'Sport';
+  }
+  // Pattern 4: Sport keywords (enhanced with tournaments, emojis)
+  else if (/\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running|cup|tournament|AFCON|FIFA|UEFA|NBA|NFL|MLB|NHL|olympics|premier league|champions league|world cup|super bowl|grand slam|⚽|🏀|🏈|⛹️|🏆|🥇)\b/i.test(caption)) {
     topic = 'Sport';
   }
   // Then check other categories
