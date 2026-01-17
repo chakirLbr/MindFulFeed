@@ -431,27 +431,91 @@ async function loadDashboard() {
     ? `Last session ended: ${lastEnded.toLocaleString()}`
     : `No completed session yet — start the extension, then stop it to generate a report.`;
 
-  // Temporary debug dump (remove later)
+  // Debug dump with AI analysis results
   const pre = document.getElementById("rawDump");
   if (pre) {
     const raw = res?.lastSession?.raw || null;
+    const fullAnalysis = res?.lastSession?.fullAnalysis || null;
+
     if (!raw) {
       pre.textContent = "No raw session data yet. Open Instagram Home Feed, press Start, scroll a bit, then Stop.";
     } else {
-      const topPosts = (raw.posts || []).slice(0, 10).map((p) => ({
-        dwellMs: p.dwellMs,
-        href: p.href,
-        caption: p.caption
-      }));
+      // Show last 30 posts with AI categorization
+      const topPosts = (raw.posts || []).slice(0, 30).map((p, index) => {
+        const postAnalysis = analyzePostDebug(p.caption);
+        return {
+          index: index + 1,
+          dwellSeconds: Math.round(p.dwellMs / 1000),
+          href: p.href,
+          caption: p.caption,
+          aiCategories: postAnalysis
+        };
+      });
+
       pre.textContent = JSON.stringify({
         sessionId: raw.sessionId,
+        platform: raw.platform || 'instagram',
         startedAt: raw.startedAt,
         pageUrl: raw.pageUrl,
-        activeKey: raw.activeKey,
-        postsTop10: topPosts
+        totalPosts: (raw.posts || []).length,
+        analysisMethod: fullAnalysis?.analysisMethod || 'demo',
+        overallCategories: fullAnalysis ? {
+          topics: fullAnalysis.topics,
+          emotions: fullAnalysis.emotions,
+          engagement: fullAnalysis.engagement
+        } : null,
+        postsTop30: topPosts
       }, null, 2);
     }
   }
+}
+
+// Helper function to show AI categorization for individual posts
+function analyzePostDebug(caption) {
+  if (!caption) return { topic: 'Unknown', emotion: 'Unknown', engagement: 'Unknown' };
+
+  const lowerCaption = caption.toLowerCase();
+
+  // Topic detection (same logic as ai-analysis.js) - CHECK IN ORDER OF SPECIFICITY
+  let topic = 'Unknown';
+
+  // Check Sport first (most specific)
+  if (/\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running)\b/i.test(caption)) {
+    topic = 'Sport';
+  }
+  // Then check other categories
+  else if (/\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson|university|college|school)\b/i.test(caption)) {
+    topic = 'Education';
+  } else if (/\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment|movie|film|series|show|watch)\b/i.test(caption)) {
+    topic = 'Entertainment';
+  } else if (/\b(friend|family|love|together|relationship|community|connection|meet|gathering|celebration|wedding|birthday)\b/i.test(caption)) {
+    topic = 'Social Connection';
+  } else if (/\b(news|breaking|update|report|announced|today|latest|current|politics|election|government|world)\b/i.test(caption)) {
+    topic = 'News & Current Events';
+  } else if (/\b(inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation|hustle|grind|mindset)\b/i.test(caption)) {
+    topic = 'Inspiration';
+  } else if (/\b(buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style|outfit|clothing|wear)\b/i.test(caption)) {
+    topic = 'Shopping & Commerce';
+  } else if (/\b(health|fitness|workout|yoga|meditation|wellbeing|mental health|self care|nutrition|exercise|gym|diet|wellness)\b/i.test(caption)) {
+    topic = 'Health & Wellness';
+  } else if (/\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty)\b/i.test(caption)) {
+    topic = 'Creative Arts';
+  } else if (caption.length > 10) {
+    topic = 'Entertainment';
+  } else {
+    topic = 'Social Connection';
+  }
+
+  // Emotion detection
+  const posCount = (caption.match(/\b(love|happy|amazing|beautiful|great|wonderful|excellent|perfect|joy|celebrate|excited|awesome|fantastic)\b/gi) || []).length;
+  const negCount = (caption.match(/\b(sad|angry|hate|terrible|awful|bad|worst|upset|frustrated|disappointing|crisis|tragedy)\b/gi) || []).length;
+
+  let emotion = 'Neutral';
+  if (posCount > negCount && posCount > 0) emotion = 'Positive';
+  else if (negCount > posCount && negCount > 0) emotion = 'Negative';
+  else if (posCount > 0 && negCount > 0) emotion = 'Mixed';
+
+  return { topic, emotion };
 }
 
 document.getElementById("refreshBtn")?.addEventListener("click", loadDashboard);

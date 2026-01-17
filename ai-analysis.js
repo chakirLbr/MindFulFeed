@@ -14,7 +14,8 @@ const AI_ANALYSIS = (() => {
       "Inspiration": "Motivational, aspirational, success stories",
       "Shopping & Commerce": "Products, shopping, commercial content",
       "Health & Wellness": "Fitness, mental health, self-care",
-      "Creative Arts": "Art, music, creativity, cultural content"
+      "Creative Arts": "Art, music, creativity, cultural content",
+      "Sport": "Sports, athletic activities, games, competitions"
     },
 
     emotions: {
@@ -133,14 +134,15 @@ const AI_ANALYSIS = (() => {
    */
   function classifyTopic(caption) {
     const patterns = {
-      "Education": /\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson)\b/i,
-      "Entertainment": /\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment)\b/i,
-      "Social Connection": /\b(friend|family|love|together|relationship|community|connection|meet|gathering|celebration)\b/i,
-      "News & Current Events": /\b(news|breaking|update|report|announced|today|latest|current|politics|election)\b/i,
-      "Inspiration": /\b(inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation)\b/i,
-      "Shopping & Commerce": /\b(buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style)\b/i,
-      "Health & Wellness": /\b(health|fitness|workout|yoga|meditation|wellbeing|mental health|self care|nutrition|exercise)\b/i,
-      "Creative Arts": /\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture)\b/i
+      "Education": /\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson|university|college|school)\b/i,
+      "Entertainment": /\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment|movie|film|series|show|watch)\b/i,
+      "Social Connection": /\b(friend|family|love|together|relationship|community|connection|meet|gathering|celebration|wedding|birthday)\b/i,
+      "News & Current Events": /\b(news|breaking|update|report|announced|today|latest|current|politics|election|government|world)\b/i,
+      "Inspiration": /\b(inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation|hustle|grind|mindset)\b/i,
+      "Shopping & Commerce": /\b(buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style|outfit|clothing|wear)\b/i,
+      "Health & Wellness": /\b(health|fitness|workout|yoga|meditation|wellbeing|mental health|self care|nutrition|exercise|gym|training|diet|wellness)\b/i,
+      "Creative Arts": /\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty)\b/i,
+      "Sport": /\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running)\b/i
     };
 
     let bestMatch = null;
@@ -341,12 +343,12 @@ const AI_ANALYSIS = (() => {
   function toLegacyFormat(analysis) {
     const durationMs = analysis.totalDwellMs;
 
-    // Map new categories to old format
+    // Map new 9 categories to old 4 categories for dashboard compatibility
     const topics = {
-      "Education": (analysis.topics["Education"] || 0) + (analysis.topics["Health & Wellness"] || 0),
-      "Fun": (analysis.topics["Entertainment"] || 0) + (analysis.topics["Creative Arts"] || 0),
-      "Sport": (analysis.topics["Health & Wellness"] || 0) * 0.3,
-      "News": (analysis.topics["News & Current Events"] || 0) + (analysis.topics["Inspiration"] || 0)
+      "Education": (analysis.topics["Education"] || 0),
+      "Fun": (analysis.topics["Entertainment"] || 0) + (analysis.topics["Creative Arts"] || 0) + (analysis.topics["Social Connection"] || 0) * 0.5,
+      "Sport": (analysis.topics["Sport"] || 0) + (analysis.topics["Health & Wellness"] || 0) * 0.5,
+      "News": (analysis.topics["News & Current Events"] || 0) + (analysis.topics["Inspiration"] || 0) + (analysis.topics["Shopping & Commerce"] || 0) * 0.3
     };
 
     const emotions = {

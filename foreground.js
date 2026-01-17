@@ -60,7 +60,19 @@
 
   function extractCaption(article) {
     // Instagram DOM changes a lot. Use a resilient heuristic:
-    // collect visible text spans and keep a short, joined caption.
+    // Try to expand "more" button first to get full caption
+    const moreButton = article.querySelector('[role="button"]');
+    if (moreButton && (moreButton.textContent === 'more' || moreButton.textContent === '...more')) {
+      try {
+        // Click the "more" button to expand caption
+        moreButton.click();
+        // Give it a tiny moment to expand (synchronous is fine, just DOM update)
+      } catch (e) {
+        // Ignore click errors
+      }
+    }
+
+    // collect visible text spans and keep a longer caption
     const spans = Array.from(article.querySelectorAll('span[dir="auto"]'));
     const texts = [];
     const seen = new Set();
@@ -69,16 +81,28 @@
       const t = (s.textContent || "").trim();
       if (!t) continue;
       if (t.length < 2) continue;
-      // filter very common UI labels (best-effort, language-agnostic-ish)
-      if (/^(like|likes|comment|comments|share|save|follow|following)$/i.test(t)) continue;
+
+      // filter very common UI labels and navigation text
+      if (/^(like|likes|comment|comments|share|save|follow|following|more|\.\.\.more|view|replies)$/i.test(t)) continue;
+
+      // Skip duplicate text
       if (seen.has(t)) continue;
+
       seen.add(t);
       texts.push(t);
-      if (texts.length >= 6) break;
+
+      // Collect up to 20 text spans for longer captions
+      if (texts.length >= 20) break;
     }
 
-    const caption = texts.join(" ").replace(/\s+/g, " ").trim();
-    return caption.slice(0, 500);
+    // Join texts and clean up
+    let caption = texts.join(" ").replace(/\s+/g, " ").trim();
+
+    // Remove trailing "...more" or "more" if it slipped through
+    caption = caption.replace(/\.\.\.more\s*$/i, '').replace(/\s+more\s*$/i, '').trim();
+
+    // Increase limit to 1000 characters for better analysis
+    return caption.slice(0, 1000);
   }
 
   function ensurePost(article) {
