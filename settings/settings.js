@@ -2,21 +2,15 @@
 
 const STORAGE_KEY = 'mf_openai_api_key';
 const MODE_KEY = 'mf_analysis_mode';
-const PUTER_TOKEN_KEY = 'mf_puter_token';
 const MODEL_KEY = 'mf_ai_model';
 
 // Load settings on page load
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, PUTER_TOKEN_KEY, MODEL_KEY]);
+  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY]);
 
   // Load API key
   if (settings[STORAGE_KEY]) {
     document.getElementById('apiKey').value = settings[STORAGE_KEY];
-  }
-
-  // Load Puter token
-  if (settings[PUTER_TOKEN_KEY]) {
-    document.getElementById('puterToken').value = settings[PUTER_TOKEN_KEY];
   }
 
   // Load AI model
@@ -37,7 +31,7 @@ async function loadSettings() {
 
 // Update visibility based on selected mode
 function updateModeVisibility(mode) {
-  const puterSection = document.getElementById('puterTokenSection');
+  const puterSection = document.getElementById('puterModelSection');
 
   if (mode === 'puter') {
     puterSection.classList.remove('hidden');
@@ -56,7 +50,6 @@ document.querySelectorAll('input[name="analysisMode"]').forEach(radio => {
 // Save settings
 document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
-  const puterToken = document.getElementById('puterToken').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
   const model = document.getElementById('aiModel').value;
 
@@ -66,14 +59,10 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     return;
   }
 
-  if (mode === 'puter' && !puterToken) {
-    showStatus('⚠️ Please enter a Puter app token for Puter mode', 'error');
-    return;
-  }
+  // Puter mode requires no validation - it's completely free!
 
   await chrome.storage.local.set({
     [STORAGE_KEY]: apiKey,
-    [PUTER_TOKEN_KEY]: puterToken,
     [MODE_KEY]: mode,
     [MODEL_KEY]: model
   });
@@ -95,20 +84,6 @@ document.getElementById('toggleApiKey').addEventListener('click', () => {
   }
 });
 
-// Toggle Puter token visibility
-document.getElementById('togglePuterToken').addEventListener('click', () => {
-  const input = document.getElementById('puterToken');
-  const button = document.getElementById('togglePuterToken');
-
-  if (input.type === 'password') {
-    input.type = 'text';
-    button.textContent = 'Hide';
-  } else {
-    input.type = 'password';
-    button.textContent = 'Show';
-  }
-});
-
 // Test API
 document.getElementById('testApi').addEventListener('click', async () => {
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
@@ -118,80 +93,45 @@ document.getElementById('testApi').addEventListener('click', async () => {
     return;
   }
 
-  const apiKey = mode === 'ai' ? document.getElementById('apiKey').value.trim() : null;
-  const puterToken = mode === 'puter' ? document.getElementById('puterToken').value.trim() : null;
+  if (mode === 'puter') {
+    showStatus('✅ Puter.js requires no setup! Just save your settings and start tracking. 🎉', 'success');
+    return;
+  }
 
-  if (mode === 'ai' && !apiKey) {
+  const apiKey = document.getElementById('apiKey').value.trim();
+
+  if (!apiKey) {
     showStatus('⚠️ Please enter an OpenAI API key first', 'error');
     return;
   }
 
-  if (mode === 'puter' && !puterToken) {
-    showStatus('⚠️ Please enter a Puter app token first', 'error');
-    return;
-  }
-
-  showStatus(`🧪 Testing ${mode === 'puter' ? 'Puter.js FREE' : 'OpenAI'} API...`, 'info');
+  showStatus('🧪 Testing OpenAI API...', 'info');
 
   try {
-    let apiUrl, headers, requestBody;
-
-    if (mode === 'puter') {
-      // Test Puter.js proxy
-      apiUrl = 'https://api.puter.com/drivers/call';
-      headers = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${puterToken}`
-      };
-      requestBody = {
-        driver: 'openai',
-        interface: 'chat-completion',
-        method: 'complete',
-        args: {
-          model: 'gpt-3.5-turbo',
-          messages: [{role: 'user', content: 'Say "API test successful"'}],
-          max_tokens: 10
-        }
-      };
-    } else {
-      // Test direct OpenAI
-      apiUrl = 'https://api.openai.com/v1/chat/completions';
-      headers = {
+    // Test direct OpenAI
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${apiKey}`
-      };
-      requestBody = {
+      },
+      body: JSON.stringify({
         model: 'gpt-3.5-turbo',
         messages: [{role: 'user', content: 'Say "API test successful"'}],
         max_tokens: 10
-      };
-    }
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(requestBody)
+      })
     });
 
     if (response.ok) {
-      if (mode === 'puter') {
-        showStatus('✅ Puter token is valid! You now have FREE unlimited AI access! 🎉', 'success');
-      } else {
-        showStatus('✅ API key is valid! You can now use AI-powered analysis.', 'success');
-      }
+      showStatus('✅ API key is valid! You can now use AI-powered analysis.', 'success');
     } else {
       const error = await response.json();
-      const errorMsg = error.error?.message || error.message || 'Unknown error';
+      const errorMsg = error.error?.message || 'Unknown error';
 
-      // Check if it's a quota/billing error (OpenAI only)
-      if (mode === 'ai' && (errorMsg.includes('quota') || errorMsg.includes('billing'))) {
+      // Check if it's a quota/billing error
+      if (errorMsg.includes('quota') || errorMsg.includes('billing')) {
         showStatus(
           `❌ No credits available. Add credits at: platform.openai.com/account/billing 💳 (Error: ${errorMsg})`,
-          'error'
-        );
-      } else if (mode === 'puter' && errorMsg.includes('token')) {
-        showStatus(
-          `❌ Invalid Puter token. Get a FREE token at: puter.com/app/dev-center (Error: ${errorMsg})`,
           'error'
         );
       } else {

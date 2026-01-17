@@ -6,7 +6,7 @@
 // - Reflection and feedback system
 
 // Import enhanced modules
-importScripts('ai-analysis.js', 'gamification.js', 'reflection-system.js');
+importScripts('puter-loader.js', 'ai-analysis.js', 'gamification.js', 'reflection-system.js');
 
 const STATE_KEY = "mf_timer_state";
 const DAILY_KEY = "mf_daily_stats";

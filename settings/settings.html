@@ -76,7 +76,7 @@
               <input type="radio" name="analysisMode" value="puter" />
               <div class="radio-content">
                 <strong>🎉 Puter.js Free AI (Recommended)</strong>
-                <p><strong>FREE unlimited access to GPT-5 & Gemini models!</strong> Best-in-class accuracy (~98%). Requires free Puter app token.</p>
+                <p><strong>FREE unlimited access to GPT-5 & Gemini models!</strong> Best-in-class accuracy (~98%). No sign-up or authentication required!</p>
               </div>
             </label>
 
@@ -89,37 +89,16 @@
             </label>
           </div>
 
-          <!-- Puter Token Input (shown when Puter mode selected) -->
-          <div id="puterTokenSection" class="form-group hidden" style="margin-top: 20px;">
-            <label for="puterToken">
-              Puter App Token
-              <span class="optional">(required for Puter mode)</span>
-            </label>
-            <div class="input-with-button">
-              <input
-                type="password"
-                id="puterToken"
-                placeholder="Enter your Puter app token..."
-                class="input"
-              />
-              <button id="togglePuterToken" class="btn-link">Show</button>
-            </div>
-
-            <div class="info-box" style="margin-top: 15px;">
-              <strong>📝 How to get a FREE Puter app token:</strong>
-              <ol>
-                <li>Visit <a href="https://puter.com" target="_blank">puter.com</a> and sign up (free)</li>
-                <li>Open <a href="https://puter.com/app/dev-center" target="_blank">Puter Dev Center</a></li>
-                <li>Click "Create App" and give it a name (e.g., "MindfulFeed")</li>
-                <li>Copy the App Token from the app details</li>
-                <li>Paste it above and save settings</li>
-              </ol>
+          <!-- Model Selection (shown when Puter mode selected) -->
+          <div id="puterModelSection" class="form-group hidden" style="margin-top: 20px;">
+            <div class="info-box">
+              <strong>🎉 Puter.js - No Setup Required!</strong>
+              <p>Just select your preferred AI model below and click Save. No sign-ups, no API keys, no authentication needed!</p>
               <p><strong>Cost:</strong> 100% FREE - Unlimited API calls!</p>
               <p><strong>Privacy:</strong> Your data is sent to AI providers via Puter's proxy. See <a href="https://puter.com/privacy" target="_blank">Puter privacy policy</a>.</p>
             </div>
 
-            <!-- Model Selection (Puter mode only) -->
-            <div class="form-group" style="margin-top: 20px;">
+            <div class="form-group" style="margin-top: 15px;">
               <label for="aiModel">
                 AI Model
                 <span class="optional">(choose your preferred model)</span>
