@@ -3,10 +3,11 @@
 const STORAGE_KEY = 'mf_openai_api_key';
 const MODE_KEY = 'mf_analysis_mode';
 const PUTER_TOKEN_KEY = 'mf_puter_token';
+const MODEL_KEY = 'mf_ai_model';
 
 // Load settings on page load
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, PUTER_TOKEN_KEY]);
+  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, PUTER_TOKEN_KEY, MODEL_KEY]);
 
   // Load API key
   if (settings[STORAGE_KEY]) {
@@ -16,6 +17,13 @@ async function loadSettings() {
   // Load Puter token
   if (settings[PUTER_TOKEN_KEY]) {
     document.getElementById('puterToken').value = settings[PUTER_TOKEN_KEY];
+  }
+
+  // Load AI model
+  const model = settings[MODEL_KEY] || 'gpt-5';
+  const modelSelect = document.getElementById('aiModel');
+  if (modelSelect) {
+    modelSelect.value = model;
   }
 
   // Load analysis mode
@@ -50,6 +58,7 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
   const puterToken = document.getElementById('puterToken').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
+  const model = document.getElementById('aiModel').value;
 
   // Validate based on mode
   if (mode === 'ai' && !apiKey) {
@@ -65,7 +74,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   await chrome.storage.local.set({
     [STORAGE_KEY]: apiKey,
     [PUTER_TOKEN_KEY]: puterToken,
-    [MODE_KEY]: mode
+    [MODE_KEY]: mode,
+    [MODEL_KEY]: model
   });
 
   showStatus('✅ Settings saved successfully!', 'success');

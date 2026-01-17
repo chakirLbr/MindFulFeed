@@ -49,25 +49,26 @@ const AI_ANALYSIS = (() => {
     if (!apiKey) {
       // Try to get from storage
       try {
-        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_use_puter', 'mf_puter_token']);
+        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_use_puter', 'mf_puter_token', 'mf_ai_model']);
         const mode = settings.mf_analysis_mode || 'heuristic';
+        const model = settings.mf_ai_model || 'gpt-5';
 
         // Check if using Puter.js (FREE!)
         if (mode === 'puter' && settings.mf_puter_token) {
-          console.log('[AI Analysis] Using Puter.js FREE API');
-          return await analyzeWithAI(posts, settings.mf_puter_token, true);
+          console.log('[AI Analysis] Using Puter.js FREE API with model:', model);
+          return await analyzeWithAI(posts, settings.mf_puter_token, true, model);
         }
         // Check if using direct OpenAI
         else if (mode === 'ai' && settings.mf_openai_api_key && settings.mf_openai_api_key.startsWith('sk-')) {
           console.log('[AI Analysis] Using stored OpenAI API key');
-          return await analyzeWithAI(posts, settings.mf_openai_api_key, false);
+          return await analyzeWithAI(posts, settings.mf_openai_api_key, false, model);
         }
       } catch (e) {
         console.log('[AI Analysis] Could not read settings, using heuristics');
       }
     } else if (apiKey.startsWith('sk-')) {
       // API key provided directly (OpenAI)
-      return await analyzeWithAI(posts, apiKey, false);
+      return await analyzeWithAI(posts, apiKey, false, 'gpt-4-turbo-preview');
     }
 
     // Default: use enhanced heuristic analysis
@@ -79,14 +80,15 @@ const AI_ANALYSIS = (() => {
    * AI-powered analysis using OpenAI API (direct or via Puter.js)
    * @param {Array} posts - Posts to analyze
    * @param {string} apiKey - OpenAI API key or Puter app token
-   * @param {boolean} usePuter - Whether to use Puter.js proxy for free unlimited GPT-5 access
+   * @param {boolean} usePuter - Whether to use Puter.js proxy for free unlimited access
+   * @param {string} model - AI model to use (e.g., 'gpt-5', 'gemini-3-pro-preview')
    */
-  async function analyzeWithAI(posts, apiKey, usePuter = false) {
+  async function analyzeWithAI(posts, apiKey, usePuter = false, model = 'gpt-5') {
     try {
       if (usePuter) {
-        console.log('[AI Analysis] Using Puter.js FREE unlimited GPT-5 API...');
+        console.log('[AI Analysis] Using Puter.js FREE unlimited API with model:', model);
       } else {
-        console.log('[AI Analysis] Using OpenAI direct API...');
+        console.log('[AI Analysis] Using OpenAI direct API with model:', model);
       }
 
       // Prepare analysis data
@@ -130,17 +132,21 @@ Format:
 
       if (usePuter) {
         // Puter.js proxy endpoint - FREE unlimited access!
+        // Determine driver based on model (Gemini uses 'google', others use 'openai')
+        const isGemini = model.startsWith('gemini-');
+        const driver = isGemini ? 'google' : 'openai';
+
         apiUrl = 'https://api.puter.com/drivers/call';
         headers = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}` // Puter app token
         };
         requestBody = {
-          driver: 'openai',
+          driver: driver,
           interface: 'chat-completion',
           method: 'complete',
           args: {
-            model: 'gpt-5',
+            model: model,
             messages: messages,
             temperature: 0.3,
             response_format: { type: 'json_object' }
@@ -154,7 +160,7 @@ Format:
           'Authorization': `Bearer ${apiKey}` // OpenAI API key
         };
         requestBody = {
-          model: 'gpt-4-turbo-preview',
+          model: model,
           messages: messages,
           temperature: 0.3,
           response_format: { type: 'json_object' }
@@ -188,13 +194,17 @@ Format:
       console.log('[AI Analysis] AI response received:', aiResult);
 
       // Convert to our format
+      const analysisMethod = usePuter
+        ? `puter-${model}-free`
+        : `openai-${model}`;
+
       return {
         topics: aiResult.overall.topics,
         emotions: aiResult.overall.emotions,
         engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
-        analysisMethod: usePuter ? 'puter-gpt5-free' : 'openai-direct',
+        analysisMethod: analysisMethod,
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,
           aiResult.overall.emotions,
