@@ -81,12 +81,65 @@
             </label>
 
             <label class="radio-option">
+              <input type="radio" name="analysisMode" value="local" />
+              <div class="radio-content">
+                <strong>🖥️ LM Studio (Local AI) - Recommended!</strong>
+                <p><strong>100% FREE, Private, Unlimited!</strong> Run AI models on your own computer. No API keys, no internet, no costs. Excellent accuracy (~90-95%).</p>
+              </div>
+            </label>
+
+            <label class="radio-option">
               <input type="radio" name="analysisMode" value="ai" />
               <div class="radio-content">
                 <strong>OpenAI Direct API</strong>
                 <p>Direct OpenAI API access. Requires paid API key (~$0.01-0.03 per session). Excellent accuracy (~95%).</p>
               </div>
             </label>
+          </div>
+
+          <!-- LM Studio Settings (shown when Local mode selected) -->
+          <div id="localModelSection" class="form-group hidden" style="margin-top: 20px;">
+            <div class="info-box">
+              <strong>🖥️ LM Studio - FREE Local AI Models!</strong>
+              <p><strong>100% FREE • 100% Private • Works Offline • Unlimited Usage</strong></p>
+              <p>Run powerful AI models directly on your computer. All processing happens locally - no data leaves your machine!</p>
+            </div>
+
+            <div class="form-group" style="margin-top: 15px;">
+              <label for="localEndpoint">
+                LM Studio API Endpoint
+                <span class="optional">(default: http://localhost:1234/v1)</span>
+              </label>
+              <input
+                type="text"
+                id="localEndpoint"
+                placeholder="http://localhost:1234/v1"
+                class="input"
+                value="http://localhost:1234/v1"
+              />
+            </div>
+
+            <div class="info-box" style="margin-top: 15px;">
+              <strong>📝 Quick Setup Guide (5 minutes):</strong>
+              <ol>
+                <li><strong>Download LM Studio:</strong> <a href="https://lmstudio.ai" target="_blank">lmstudio.ai</a> (Free for Windows/Mac/Linux)</li>
+                <li><strong>Install and open</strong> LM Studio</li>
+                <li><strong>Download a model:</strong> Click "Search" tab, search for <strong>"Phi-3 Mini"</strong> or <strong>"Gemma 2 9B"</strong>, click Download</li>
+                <li><strong>Start the server:</strong> Click "Local Server" tab → Click "Start Server"</li>
+                <li><strong>Load the model:</strong> Select your downloaded model from the dropdown</li>
+                <li><strong>Done!</strong> Save settings and start tracking</li>
+              </ol>
+
+              <p><strong>Recommended Models:</strong></p>
+              <ul>
+                <li><strong>Phi-3 Mini (3.8B)</strong> - Fast, excellent for categorization, works on most computers</li>
+                <li><strong>Gemma 2 9B</strong> - Better accuracy, needs more powerful computer</li>
+                <li><strong>Llama 3.2 3B</strong> - Very fast, good enough for basic categorization</li>
+              </ul>
+
+              <p><strong>System Requirements:</strong> 8GB+ RAM recommended. GPU optional but faster.</p>
+              <p><strong>Privacy:</strong> 100% private! All data stays on your computer. Nothing sent to internet.</p>
+            </div>
           </div>
 
           <!-- Model Selection (shown when Puter mode selected) -->

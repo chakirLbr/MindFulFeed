@@ -444,7 +444,9 @@ async function loadDashboard() {
       const method = fullAnalysis?.analysisMethod || 'heuristic';
       let methodDescription = '';
 
-      if (method.startsWith('puter-')) {
+      if (method === 'local-lmstudio') {
+        methodDescription = `🖥️ <strong style="color: #8b5cf6;">LM Studio Local AI</strong> - 100% FREE, Private, Unlimited! Analyzes text captions with ~90-95% accuracy. <em>All processing happens on your computer - no data leaves your machine!</em>`;
+      } else if (method.startsWith('puter-')) {
         // Extract model name from method like "puter-gpt-5-free"
         const modelMatch = method.match(/puter-(.+)-free/);
         const modelName = modelMatch ? modelMatch[1] : 'AI';
@@ -453,9 +455,9 @@ async function loadDashboard() {
         const modelName = method.replace('openai-', '');
         methodDescription = `🤖 <strong style="color: #3b82f6;">OpenAI Direct API</strong> using <strong>${modelName}</strong> - Analyzes text captions with ~95% accuracy. <em>Image and video analysis coming soon.</em>`;
       } else if (method === 'heuristic') {
-        methodDescription = `🔤 <strong>NLP Heuristics</strong> - Fast, offline keyword matching analyzing text captions only (~75% accuracy). <em>Upgrade to Puter.js FREE AI for better accuracy!</em>`;
+        methodDescription = `🔤 <strong>NLP Heuristics</strong> - Fast, offline keyword matching analyzing text captions only (~75% accuracy). <em>Upgrade to LM Studio for FREE local AI!</em>`;
       } else {
-        methodDescription = `📊 <strong>Analysis</strong> - Analyzing text captions only. <em>Try Puter.js for FREE AI-powered analysis!</em>`;
+        methodDescription = `📊 <strong>Analysis</strong> - Analyzing text captions only. <em>Try LM Studio for FREE local AI!</em>`;
       }
 
       analysisMethodTextEl.innerHTML = methodDescription;

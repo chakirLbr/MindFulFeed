@@ -4,10 +4,11 @@ const STORAGE_KEY = 'mf_openai_api_key';
 const MODE_KEY = 'mf_analysis_mode';
 const MODEL_KEY = 'mf_ai_model';
 const PUTER_TOKEN_KEY = 'mf_puter_token';
+const LOCAL_ENDPOINT_KEY = 'mf_local_endpoint';
 
 // Load settings on page load
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY, PUTER_TOKEN_KEY]);
+  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY, PUTER_TOKEN_KEY, LOCAL_ENDPOINT_KEY]);
 
   // Load API key
   if (settings[STORAGE_KEY]) {
@@ -18,6 +19,10 @@ async function loadSettings() {
   if (settings[PUTER_TOKEN_KEY]) {
     document.getElementById('puterToken').value = settings[PUTER_TOKEN_KEY];
   }
+
+  // Load local endpoint
+  const localEndpoint = settings[LOCAL_ENDPOINT_KEY] || 'http://localhost:1234/v1';
+  document.getElementById('localEndpoint').value = localEndpoint;
 
   // Load AI model
   const model = settings[MODEL_KEY] || 'gpt-5';
@@ -38,11 +43,17 @@ async function loadSettings() {
 // Update visibility based on selected mode
 function updateModeVisibility(mode) {
   const puterSection = document.getElementById('puterModelSection');
+  const localSection = document.getElementById('localModelSection');
 
   if (mode === 'puter') {
     puterSection.classList.remove('hidden');
+    localSection.classList.add('hidden');
+  } else if (mode === 'local') {
+    localSection.classList.remove('hidden');
+    puterSection.classList.add('hidden');
   } else {
     puterSection.classList.add('hidden');
+    localSection.classList.add('hidden');
   }
 }
 
@@ -57,6 +68,7 @@ document.querySelectorAll('input[name="analysisMode"]').forEach(radio => {
 document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
   const puterToken = document.getElementById('puterToken').value.trim();
+  const localEndpoint = document.getElementById('localEndpoint').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
   const model = document.getElementById('aiModel').value;
 
@@ -71,9 +83,15 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     return;
   }
 
+  if (mode === 'local' && !localEndpoint) {
+    showStatus('⚠️ Please enter LM Studio endpoint URL', 'error');
+    return;
+  }
+
   await chrome.storage.local.set({
     [STORAGE_KEY]: apiKey,
     [PUTER_TOKEN_KEY]: puterToken,
+    [LOCAL_ENDPOINT_KEY]: localEndpoint,
     [MODE_KEY]: mode,
     [MODEL_KEY]: model
   });
@@ -120,6 +138,33 @@ document.getElementById('testApi').addEventListener('click', async () => {
 
   if (mode === 'puter') {
     showStatus('✅ Puter.js requires no setup! Just save your settings and start tracking. 🎉', 'success');
+    return;
+  }
+
+  if (mode === 'local') {
+    const localEndpoint = document.getElementById('localEndpoint').value.trim();
+
+    if (!localEndpoint) {
+      showStatus('⚠️ Please enter LM Studio endpoint URL first', 'error');
+      return;
+    }
+
+    showStatus('🧪 Testing LM Studio connection...', 'info');
+
+    try {
+      const apiUrl = localEndpoint.replace('/v1', '') + '/v1/models';
+      const response = await fetch(apiUrl);
+
+      if (response.ok) {
+        const data = await response.json();
+        const modelCount = data.data?.length || 0;
+        showStatus(`✅ Connected to LM Studio! Found ${modelCount} model(s) loaded. Ready to analyze! 🎉`, 'success');
+      } else {
+        showStatus('❌ Cannot connect to LM Studio. Make sure:\n1. LM Studio is running\n2. Server is started (Local Server tab)\n3. A model is loaded', 'error');
+      }
+    } catch (error) {
+      showStatus(`❌ Cannot connect to LM Studio at ${localEndpoint}. Make sure LM Studio server is running!`, 'error');
+    }
     return;
   }
 

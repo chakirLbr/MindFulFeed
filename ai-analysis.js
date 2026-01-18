@@ -49,12 +49,17 @@ const AI_ANALYSIS = (() => {
     if (!apiKey) {
       // Try to get from storage
       try {
-        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_ai_model', 'mf_puter_token']);
+        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_ai_model', 'mf_puter_token', 'mf_local_endpoint']);
         const mode = settings.mf_analysis_mode || 'heuristic';
         const model = settings.mf_ai_model || 'gpt-5';
 
+        // Check if using LM Studio (Local AI)
+        if (mode === 'local' && settings.mf_local_endpoint) {
+          console.log('[AI Analysis] Using LM Studio local AI');
+          return await analyzeWithLocal(posts, settings.mf_local_endpoint);
+        }
         // Check if using Puter.js (FREE with token!)
-        if (mode === 'puter' && settings.mf_puter_token) {
+        else if (mode === 'puter' && settings.mf_puter_token) {
           console.log('[AI Analysis] Using Puter.js FREE API with model:', model);
           return await analyzeWithPuter(posts, model, settings.mf_puter_token);
         }
@@ -161,6 +166,102 @@ Format:
 
     } catch (error) {
       console.error('[AI Analysis] Puter.js error, falling back to heuristics:', error);
+      return await analyzeWithHeuristics(posts);
+    }
+  }
+
+  /**
+   * AI-powered analysis using LM Studio (local AI models)
+   * @param {Array} posts - Posts to analyze
+   * @param {string} endpoint - LM Studio API endpoint (e.g., http://localhost:1234/v1)
+   */
+  async function analyzeWithLocal(posts, endpoint) {
+    try {
+      console.log('[AI Analysis] Using LM Studio local AI at:', endpoint);
+
+      // Prepare analysis data
+      const topPosts = posts.slice(0, 20); // Analyze top 20 posts
+      const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
+
+      const prompt = `Analyze these ${topPosts.length} social media posts and categorize them:
+
+POSTS:
+${captions}
+
+Provide a JSON response with:
+1. For each post (by number), classify:
+   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+   - emotion: Positive, Negative, Neutral, or Mixed
+
+2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
+${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
+
+Format:
+{
+  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "overall": {
+    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
+  }
+}`;
+
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided. Respond ONLY with valid JSON.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ];
+
+      // Call local LM Studio server (OpenAI-compatible API)
+      const apiUrl = endpoint.endsWith('/v1') ? endpoint : endpoint + '/v1';
+      const response = await fetch(`${apiUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+          // No Authorization header needed for local server
+        },
+        body: JSON.stringify({
+          messages: messages,
+          temperature: 0.3,
+          max_tokens: 2000,
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`LM Studio API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const content = data.choices[0].message.content;
+      const aiResult = JSON.parse(content);
+
+      console.log('[AI Analysis] LM Studio response received:', aiResult);
+
+      // Convert to our format
+      return {
+        topics: aiResult.overall.topics,
+        emotions: aiResult.overall.emotions,
+        engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
+        totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
+        postsAnalyzed: posts.length,
+        analysisMethod: 'local-lmstudio',
+        perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
+        insights: generatePsychologicalInsights(
+          aiResult.overall.topics,
+          aiResult.overall.emotions,
+          { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
+          posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
+        )
+      };
+
+    } catch (error) {
+      console.error('[AI Analysis] LM Studio error, falling back to heuristics:', error);
       return await analyzeWithHeuristics(posts);
     }
   }
