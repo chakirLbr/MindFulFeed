@@ -92,10 +92,39 @@
           <!-- Model Selection (shown when Puter mode selected) -->
           <div id="puterModelSection" class="form-group hidden" style="margin-top: 20px;">
             <div class="info-box">
-              <strong>🎉 Puter.js - No Setup Required!</strong>
-              <p>Just select your preferred AI model below and click Save. No sign-ups, no API keys, no authentication needed!</p>
-              <p><strong>Cost:</strong> 100% FREE - Unlimited API calls!</p>
-              <p><strong>Privacy:</strong> Your data is sent to AI providers via Puter's proxy. See <a href="https://puter.com/privacy" target="_blank">Puter privacy policy</a>.</p>
+              <strong>🎉 Puter.js - Get Your FREE Token!</strong>
+              <p><strong>100% FREE unlimited access</strong> to GPT-5 & Gemini models!</p>
+              <p>Just create a free Puter account, get your app token (takes 2 minutes), and enjoy unlimited AI analysis!</p>
+            </div>
+
+            <!-- Puter Token Input -->
+            <div class="form-group" style="margin-top: 15px;">
+              <label for="puterToken">
+                Puter App Token
+                <span class="optional">(required for free AI access)</span>
+              </label>
+              <div class="input-with-button">
+                <input
+                  type="password"
+                  id="puterToken"
+                  placeholder="Enter your Puter app token..."
+                  class="input"
+                />
+                <button id="togglePuterToken" class="btn-link">Show</button>
+              </div>
+
+              <div class="info-box" style="margin-top: 10px;">
+                <strong>📝 How to get a FREE Puter app token (2 minutes):</strong>
+                <ol>
+                  <li>Visit <a href="https://puter.com" target="_blank">puter.com</a> and sign up (free)</li>
+                  <li>Open <a href="https://puter.com/app/dev-center" target="_blank">Puter Dev Center</a></li>
+                  <li>Click "Create App" and give it a name (e.g., "MindfulFeed")</li>
+                  <li>Copy the <strong>App Token</strong> from the app details</li>
+                  <li>Paste it above and save settings</li>
+                </ol>
+                <p><strong>Cost:</strong> 100% FREE - Unlimited API calls forever!</p>
+                <p><strong>Privacy:</strong> Your data is sent to AI providers via Puter's proxy. See <a href="https://puter.com/privacy" target="_blank">Puter privacy policy</a>.</p>
+              </div>
             </div>
 
             <div class="form-group" style="margin-top: 15px;">

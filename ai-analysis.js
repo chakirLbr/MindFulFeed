@@ -49,14 +49,14 @@ const AI_ANALYSIS = (() => {
     if (!apiKey) {
       // Try to get from storage
       try {
-        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_ai_model']);
+        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_ai_model', 'mf_puter_token']);
         const mode = settings.mf_analysis_mode || 'heuristic';
         const model = settings.mf_ai_model || 'gpt-5';
 
-        // Check if using Puter.js (FREE! No auth needed!)
-        if (mode === 'puter') {
+        // Check if using Puter.js (FREE with token!)
+        if (mode === 'puter' && settings.mf_puter_token) {
           console.log('[AI Analysis] Using Puter.js FREE API with model:', model);
-          return await analyzeWithPuter(posts, model);
+          return await analyzeWithPuter(posts, model, settings.mf_puter_token);
         }
         // Check if using direct OpenAI
         else if (mode === 'ai' && settings.mf_openai_api_key && settings.mf_openai_api_key.startsWith('sk-')) {
@@ -77,11 +77,12 @@ const AI_ANALYSIS = (() => {
   }
 
   /**
-   * AI-powered analysis using Puter.js (FREE, no auth required!)
+   * AI-powered analysis using Puter.js (FREE with token!)
    * @param {Array} posts - Posts to analyze
    * @param {string} model - AI model to use (e.g., 'gpt-5', 'gemini-3-pro-preview')
+   * @param {string} puterToken - Puter app token for authentication
    */
-  async function analyzeWithPuter(posts, model = 'gpt-5') {
+  async function analyzeWithPuter(posts, model = 'gpt-5', puterToken) {
     try {
       console.log('[AI Analysis] Using Puter.js FREE unlimited API with model:', model);
 
@@ -126,13 +127,14 @@ Format:
       const isGemini = model.startsWith('gemini-');
       const driver = isGemini ? 'google' : 'openai';
 
-      // Use Puter.js library - NO AUTHENTICATION REQUIRED!
+      // Use Puter.js library with token authentication
       const response = await PuterAI.chat({
         driver: driver,
         model: model,
         messages: messages,
         temperature: 0.3,
-        response_format: { type: 'json_object' }
+        response_format: { type: 'json_object' },
+        token: puterToken  // Pass the Puter app token!
       });
 
       // Parse AI response

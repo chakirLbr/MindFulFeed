@@ -42,20 +42,30 @@ const PuterAI = (() => {
     }
 
     // Fallback: Use direct API approach
-    console.log('[Puter] Using direct Puter API (no library)');
+    console.log('[Puter] Using direct Puter API (with token)');
     console.log('[Puter] Request:', {
       driver: options.driver,
       model: options.model,
-      messagesCount: options.messages?.length
+      messagesCount: options.messages?.length,
+      hasToken: !!options.token
     });
 
     try {
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      // Add authentication token if provided
+      if (options.token) {
+        headers['Authorization'] = `Bearer ${options.token}`;
+        console.log('[Puter] Token added to Authorization header');
+      } else {
+        console.warn('[Puter] No token provided - API call will likely fail!');
+      }
+
       const response = await fetch('https://api.puter.com/drivers/call', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-          // According to Puter docs: no auth needed for free access
-        },
+        headers: headers,
         body: JSON.stringify({
           driver: options.driver || 'openai',
           interface: 'chat-completion',

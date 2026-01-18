@@ -3,14 +3,20 @@
 const STORAGE_KEY = 'mf_openai_api_key';
 const MODE_KEY = 'mf_analysis_mode';
 const MODEL_KEY = 'mf_ai_model';
+const PUTER_TOKEN_KEY = 'mf_puter_token';
 
 // Load settings on page load
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY]);
+  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY, PUTER_TOKEN_KEY]);
 
   // Load API key
   if (settings[STORAGE_KEY]) {
     document.getElementById('apiKey').value = settings[STORAGE_KEY];
+  }
+
+  // Load Puter token
+  if (settings[PUTER_TOKEN_KEY]) {
+    document.getElementById('puterToken').value = settings[PUTER_TOKEN_KEY];
   }
 
   // Load AI model
@@ -50,6 +56,7 @@ document.querySelectorAll('input[name="analysisMode"]').forEach(radio => {
 // Save settings
 document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
+  const puterToken = document.getElementById('puterToken').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
   const model = document.getElementById('aiModel').value;
 
@@ -59,10 +66,14 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     return;
   }
 
-  // Puter mode requires no validation - it's completely free!
+  if (mode === 'puter' && !puterToken) {
+    showStatus('⚠️ Please enter a Puter app token for Puter mode', 'error');
+    return;
+  }
 
   await chrome.storage.local.set({
     [STORAGE_KEY]: apiKey,
+    [PUTER_TOKEN_KEY]: puterToken,
     [MODE_KEY]: mode,
     [MODEL_KEY]: model
   });
@@ -74,6 +85,20 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
 document.getElementById('toggleApiKey').addEventListener('click', () => {
   const input = document.getElementById('apiKey');
   const button = document.getElementById('toggleApiKey');
+
+  if (input.type === 'password') {
+    input.type = 'text';
+    button.textContent = 'Hide';
+  } else {
+    input.type = 'password';
+    button.textContent = 'Show';
+  }
+});
+
+// Toggle Puter token visibility
+document.getElementById('togglePuterToken').addEventListener('click', () => {
+  const input = document.getElementById('puterToken');
+  const button = document.getElementById('togglePuterToken');
 
   if (input.type === 'password') {
     input.type = 'text';
