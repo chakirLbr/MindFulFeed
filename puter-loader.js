@@ -94,6 +94,13 @@ const PuterAI = (() => {
         keys: Object.keys(data)
       });
 
+      // Check if Puter API returned an error
+      if (data.success === false && data.error) {
+        console.error('[Puter] API returned error:', data.error);
+        const errorMessage = data.error.message || JSON.stringify(data.error);
+        throw new Error(`Puter API error: ${errorMessage}`);
+      }
+
       // Try different response formats
       let content;
       if (data.result?.choices?.[0]?.message?.content) {
