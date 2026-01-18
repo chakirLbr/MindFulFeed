@@ -88,16 +88,22 @@ const PuterAI = (() => {
       }
 
       const data = await response.json();
+      console.log('[Puter] Full API response:', JSON.stringify(data, null, 2));
       console.log('[Puter] API response data structure:', {
         hasResult: !!data.result,
         hasChoices: !!data.choices,
+        hasSuccess: 'success' in data,
+        successValue: data.success,
+        successType: typeof data.success,
+        hasError: !!data.error,
+        errorValue: data.error,
         keys: Object.keys(data)
       });
 
       // Check if Puter API returned an error
       if (data.success === false && data.error) {
-        console.error('[Puter] API returned error:', data.error);
-        const errorMessage = data.error.message || JSON.stringify(data.error);
+        console.error('[Puter] API returned error object:', JSON.stringify(data.error, null, 2));
+        const errorMessage = data.error.message || data.error.info || data.error.code || JSON.stringify(data.error);
         throw new Error(`Puter API error: ${errorMessage}`);
       }
 
