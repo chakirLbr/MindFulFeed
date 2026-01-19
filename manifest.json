@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "MindfulFeed - AI Digital Wellbeing",
   "description": "Track, reflect, and improve your social media wellbeing with AI-powered insights, gamification, and mindful engagement",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "icons": {
     "16": "logo/logo-16.png",
     "48": "logo/logo-48.png",
@@ -16,7 +16,9 @@
   "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "https://www.instagram.com/*",
-    "https://www.youtube.com/*"
+    "https://www.youtube.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "service-worker.js"
