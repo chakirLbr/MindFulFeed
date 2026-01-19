@@ -3,21 +3,15 @@
 const STORAGE_KEY = 'mf_openai_api_key';
 const MODE_KEY = 'mf_analysis_mode';
 const MODEL_KEY = 'mf_ai_model';
-const PUTER_TOKEN_KEY = 'mf_puter_token';
 const LOCAL_ENDPOINT_KEY = 'mf_local_endpoint';
 
 // Load settings on page load
 async function loadSettings() {
-  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY, PUTER_TOKEN_KEY, LOCAL_ENDPOINT_KEY]);
+  const settings = await chrome.storage.local.get([STORAGE_KEY, MODE_KEY, MODEL_KEY, LOCAL_ENDPOINT_KEY]);
 
   // Load API key
   if (settings[STORAGE_KEY]) {
     document.getElementById('apiKey').value = settings[STORAGE_KEY];
-  }
-
-  // Load Puter token
-  if (settings[PUTER_TOKEN_KEY]) {
-    document.getElementById('puterToken').value = settings[PUTER_TOKEN_KEY];
   }
 
   // Load local endpoint
@@ -42,17 +36,11 @@ async function loadSettings() {
 
 // Update visibility based on selected mode
 function updateModeVisibility(mode) {
-  const puterSection = document.getElementById('puterModelSection');
   const localSection = document.getElementById('localModelSection');
 
-  if (mode === 'puter') {
-    puterSection.classList.remove('hidden');
-    localSection.classList.add('hidden');
-  } else if (mode === 'local') {
+  if (mode === 'local') {
     localSection.classList.remove('hidden');
-    puterSection.classList.add('hidden');
   } else {
-    puterSection.classList.add('hidden');
     localSection.classList.add('hidden');
   }
 }
@@ -67,7 +55,6 @@ document.querySelectorAll('input[name="analysisMode"]').forEach(radio => {
 // Save settings
 document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
-  const puterToken = document.getElementById('puterToken').value.trim();
   const localEndpoint = document.getElementById('localEndpoint').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
   const model = document.getElementById('aiModel').value;
@@ -78,11 +65,6 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
     return;
   }
 
-  if (mode === 'puter' && !puterToken) {
-    showStatus('⚠️ Please enter a Puter app token for Puter mode', 'error');
-    return;
-  }
-
   if (mode === 'local' && !localEndpoint) {
     showStatus('⚠️ Please enter LM Studio endpoint URL', 'error');
     return;
@@ -90,7 +72,6 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
 
   await chrome.storage.local.set({
     [STORAGE_KEY]: apiKey,
-    [PUTER_TOKEN_KEY]: puterToken,
     [LOCAL_ENDPOINT_KEY]: localEndpoint,
     [MODE_KEY]: mode,
     [MODEL_KEY]: model
@@ -113,31 +94,12 @@ document.getElementById('toggleApiKey').addEventListener('click', () => {
   }
 });
 
-// Toggle Puter token visibility
-document.getElementById('togglePuterToken').addEventListener('click', () => {
-  const input = document.getElementById('puterToken');
-  const button = document.getElementById('togglePuterToken');
-
-  if (input.type === 'password') {
-    input.type = 'text';
-    button.textContent = 'Hide';
-  } else {
-    input.type = 'password';
-    button.textContent = 'Show';
-  }
-});
-
 // Test API
 document.getElementById('testApi').addEventListener('click', async () => {
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
 
   if (mode === 'heuristic') {
     showStatus('ℹ️ Heuristic mode does not require API testing (works offline)', 'info');
-    return;
-  }
-
-  if (mode === 'puter') {
-    showStatus('✅ Puter.js requires no setup! Just save your settings and start tracking. 🎉', 'success');
     return;
   }
 

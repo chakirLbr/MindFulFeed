@@ -49,19 +49,14 @@ const AI_ANALYSIS = (() => {
     if (!apiKey) {
       // Try to get from storage
       try {
-        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_ai_model', 'mf_puter_token', 'mf_local_endpoint']);
+        const settings = await chrome.storage.local.get(['mf_openai_api_key', 'mf_analysis_mode', 'mf_ai_model', 'mf_local_endpoint']);
         const mode = settings.mf_analysis_mode || 'heuristic';
-        const model = settings.mf_ai_model || 'gpt-5';
+        const model = settings.mf_ai_model || 'gpt-4o-mini';
 
         // Check if using LM Studio (Local AI)
         if (mode === 'local' && settings.mf_local_endpoint) {
-          console.log('[AI Analysis] Using LM Studio local AI');
+          console.log('[AI Analysis] Using LM Studio local AI at:', settings.mf_local_endpoint);
           return await analyzeWithLocal(posts, settings.mf_local_endpoint);
-        }
-        // Check if using Puter.js (FREE with token!)
-        else if (mode === 'puter' && settings.mf_puter_token) {
-          console.log('[AI Analysis] Using Puter.js FREE API with model:', model);
-          return await analyzeWithPuter(posts, model, settings.mf_puter_token);
         }
         // Check if using direct OpenAI
         else if (mode === 'ai' && settings.mf_openai_api_key && settings.mf_openai_api_key.startsWith('sk-')) {
@@ -69,7 +64,7 @@ const AI_ANALYSIS = (() => {
           return await analyzeWithAI(posts, settings.mf_openai_api_key, model);
         }
       } catch (e) {
-        console.log('[AI Analysis] Could not read settings, using heuristics');
+        console.log('[AI Analysis] Could not read settings, using heuristics:', e);
       }
     } else if (apiKey.startsWith('sk-')) {
       // API key provided directly (OpenAI)
@@ -79,95 +74,6 @@ const AI_ANALYSIS = (() => {
     // Default: use enhanced heuristic analysis
     console.log('[AI Analysis] Using enhanced heuristic analysis');
     return await analyzeWithHeuristics(posts);
-  }
-
-  /**
-   * AI-powered analysis using Puter.js (FREE with token!)
-   * @param {Array} posts - Posts to analyze
-   * @param {string} model - AI model to use (e.g., 'gpt-5', 'gemini-3-pro-preview')
-   * @param {string} puterToken - Puter app token for authentication
-   */
-  async function analyzeWithPuter(posts, model = 'gpt-5', puterToken) {
-    try {
-      console.log('[AI Analysis] Using Puter.js FREE unlimited API with model:', model);
-
-      // Prepare analysis data
-      const topPosts = posts.slice(0, 20); // Analyze top 20 posts
-      const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
-
-      const prompt = `Analyze these ${topPosts.length} social media posts and categorize them:
-
-POSTS:
-${captions}
-
-Provide a JSON response with:
-1. For each post (by number), classify:
-   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
-   - emotion: Positive, Negative, Neutral, or Mixed
-
-2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
-${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
-
-Format:
-{
-  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
-  "overall": {
-    "topics": {"Education": 0.15, "Sport": 0.25, ...},
-    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
-  }
-}`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
-
-      // Determine driver based on model (Gemini uses 'google', others use 'openai')
-      const isGemini = model.startsWith('gemini-');
-      const driver = isGemini ? 'google' : 'openai';
-
-      // Use Puter.js library with token authentication
-      const response = await PuterAI.chat({
-        driver: driver,
-        model: model,
-        messages: messages,
-        temperature: 0.3,
-        response_format: { type: 'json_object' },
-        token: puterToken  // Pass the Puter app token!
-      });
-
-      // Parse AI response
-      const aiResult = JSON.parse(response.choices[0].message.content);
-
-      console.log('[AI Analysis] Puter.js response received:', aiResult);
-
-      // Convert to our format
-      return {
-        topics: aiResult.overall.topics,
-        emotions: aiResult.overall.emotions,
-        engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
-        totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
-        postsAnalyzed: posts.length,
-        analysisMethod: `puter-${model}-free`,
-        perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
-        insights: generatePsychologicalInsights(
-          aiResult.overall.topics,
-          aiResult.overall.emotions,
-          { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
-          posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
-        )
-      };
-
-    } catch (error) {
-      console.error('[AI Analysis] Puter.js error, falling back to heuristics:', error);
-      return await analyzeWithHeuristics(posts);
-    }
   }
 
   /**
