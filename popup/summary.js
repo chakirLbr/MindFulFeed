@@ -465,44 +465,68 @@ async function loadDashboard() {
       analysisMethodTextEl.innerHTML = methodDescription;
     }
 
-    if (!raw) {
-      pre.textContent = "No raw session data yet. Open Instagram Home Feed, press Start, scroll a bit, then Stop.";
+    // Display all sessions from history in separate sections
+    const sessionHistory = res?.sessionHistory || [];
+
+    if (sessionHistory.length === 0) {
+      pre.textContent = "No sessions yet. Open Instagram, press Start, scroll a bit, then Stop to generate your first session.";
     } else {
-      // Show last 30 posts with AI categorization
-      // Use actual AI results if available, otherwise fall back to heuristics
-      const perPostAI = fullAnalysis?.perPostAnalysis || [];
-      const hasAIResults = perPostAI.length > 0;
+      // Build HTML for all sessions
+      let debugHTML = '';
 
-      const topPosts = (raw.posts || []).slice(0, 30).map((p, index) => {
-        // Use actual AI categorization if available, otherwise use heuristics
-        const postAnalysis = hasAIResults && perPostAI[index]
-          ? perPostAI[index]  // Use real AI results!
-          : analyzePostDebug(p.caption);  // Fallback to heuristics
+      sessionHistory.forEach((session, sessionIndex) => {
+        const raw = session.raw;
+        const fullAnalysis = session.fullAnalysis;
 
-        return {
-          index: index + 1,
-          dwellSeconds: Math.round(p.dwellMs / 1000),
-          href: p.href,
-          caption: p.caption,
-          aiCategories: postAnalysis,
-          analysisSource: hasAIResults && perPostAI[index] ? 'AI' : 'heuristic'
+        if (!raw) return; // Skip if no raw data
+
+        const perPostAI = fullAnalysis?.perPostAnalysis || [];
+        const hasAIResults = perPostAI.length > 0;
+
+        const topPosts = (raw.posts || []).slice(0, 30).map((p, index) => {
+          const postAnalysis = hasAIResults && perPostAI[index]
+            ? perPostAI[index]
+            : analyzePostDebug(p.caption);
+
+          return {
+            index: index + 1,
+            dwellSeconds: Math.round(p.dwellMs / 1000),
+            href: p.href,
+            caption: p.caption,
+            imageUrl: p.imageUrl,  // Include image URL
+            aiCategories: postAnalysis,
+            analysisSource: hasAIResults && perPostAI[index] ? 'AI' : 'heuristic'
+          };
+        });
+
+        const sessionData = {
+          sessionId: raw.sessionId,
+          platform: raw.platform || 'instagram',
+          startedAt: raw.startedAt,
+          endedAt: session.endedAt,
+          durationMinutes: Math.round(session.durationMs / 60000),
+          pageUrl: raw.pageUrl,
+          totalPosts: (raw.posts || []).length,
+          analysisMethod: fullAnalysis?.analysisMethod || 'heuristic',
+          overallCategories: fullAnalysis ? {
+            topics: fullAnalysis.topics,
+            emotions: fullAnalysis.emotions,
+            engagement: fullAnalysis.engagement
+          } : null,
+          postsTop30: topPosts
         };
+
+        // Format session as text block with header
+        const sessionDate = new Date(session.endedAt).toLocaleString();
+        debugHTML += `\n${'='.repeat(80)}\n`;
+        debugHTML += `SESSION ${sessionIndex + 1} - ${sessionDate}\n`;
+        debugHTML += `Duration: ${sessionData.durationMinutes} minutes | Analysis: ${sessionData.analysisMethod}\n`;
+        debugHTML += `${'='.repeat(80)}\n\n`;
+        debugHTML += JSON.stringify(sessionData, null, 2);
+        debugHTML += '\n\n';
       });
 
-      pre.textContent = JSON.stringify({
-        sessionId: raw.sessionId,
-        platform: raw.platform || 'instagram',
-        startedAt: raw.startedAt,
-        pageUrl: raw.pageUrl,
-        totalPosts: (raw.posts || []).length,
-        analysisMethod: fullAnalysis?.analysisMethod || 'heuristic',
-        overallCategories: fullAnalysis ? {
-          topics: fullAnalysis.topics,
-          emotions: fullAnalysis.emotions,
-          engagement: fullAnalysis.engagement
-        } : null,
-        postsTop30: topPosts
-      }, null, 2);
+      pre.textContent = debugHTML;
     }
   }
 }

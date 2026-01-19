@@ -14,6 +14,7 @@ const LAST_SESSION_KEY = "mf_last_session";
 const RAW_SESSION_KEY = "mf_raw_session"; // dwell/caption snapshot from content script
 const SESSION_META_KEY = "mf_session_meta"; // { sessionId, tabId, acceptFinalizeUntil }
 const SESSION_COUNT_KEY = "mf_daily_session_count"; // Track session count per day
+const SESSION_HISTORY_KEY = "mf_session_history"; // Array of recent sessions (keep last 20)
 
 const defaultState = {
   isTracking: false,
@@ -110,6 +111,26 @@ async function getRawSession() {
 async function setRawSession(raw) {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [RAW_SESSION_KEY]: raw }, () => resolve());
+  });
+}
+
+async function getSessionHistory() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([SESSION_HISTORY_KEY], (r) => resolve(r[SESSION_HISTORY_KEY] || []));
+  });
+}
+
+async function addToSessionHistory(session) {
+  const history = await getSessionHistory();
+
+  // Add new session to beginning of array (most recent first)
+  history.unshift(session);
+
+  // Keep only last 20 sessions to save storage space
+  const trimmed = history.slice(0, 20);
+
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [SESSION_HISTORY_KEY]: trimmed }, () => resolve());
   });
 }
 
@@ -265,7 +286,8 @@ async function start() {
   const next = {
     ...state,
     isTracking: true,
-    startedAt: getNow()
+    startedAt: getNow(),
+    elapsedMs: 0  // Reset timer to 0 for new session
   };
 
   await setState(next);
@@ -355,10 +377,14 @@ async function stop() {
     emotions: breakdown.emotionMs,
     perTopicEmotions: breakdown.perTopicEmotions,
     insights: breakdown.fullAnalysis?.insights || [],
+    fullAnalysis: breakdown.fullAnalysis,  // Include full AI analysis
     raw: raw,
     sessionCount: todaySessionCount
   };
   await setLastSession(session);
+
+  // Add to session history (keep last 20 sessions)
+  await addToSessionHistory(session);
 
   // Aggregate into daily bucket
   const daily = await getDaily();
@@ -509,10 +535,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
     // Optional: dashboard fetch helper
     if (msg.type === "GET_DASHBOARD") {
-      const [state, daily, last, reflections] = await Promise.all([
+      const [state, daily, last, history, reflections] = await Promise.all([
         getState(),
         getDaily(),
         new Promise((resolve) => chrome.storage.local.get([LAST_SESSION_KEY], (r) => resolve(r[LAST_SESSION_KEY] || null))),
+        getSessionHistory(),
         REFLECTION_SYSTEM.getReflections()
       ]);
 
@@ -529,6 +556,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         elapsedMs: computeElapsed(state),
         daily,
         lastSession: last,
+        sessionHistory: history,  // Include session history
         gamification: {
           stats,
           level,
