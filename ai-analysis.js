@@ -180,10 +180,86 @@ Format:
       console.log('[AI Analysis] Using LM Studio local AI at:', endpoint);
 
       // Prepare analysis data
-      const topPosts = posts.slice(0, 20); // Analyze top 20 posts
-      const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
+      const topPosts = posts.slice(0, 15); // Analyze top 15 posts (reduced for vision models - larger payloads)
 
-      const prompt = `Analyze these ${topPosts.length} social media posts and categorize them:
+      // Check if we have images (vision model support)
+      const hasImages = topPosts.some(p => p.imageUrl);
+      console.log('[AI Analysis] Vision model mode:', hasImages ? 'YES - analyzing images!' : 'NO - text only');
+
+      // Build messages with multimodal content if images are available
+      const messages = [];
+
+      // System message
+      messages.push({
+        role: 'system',
+        content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided. Respond ONLY with valid JSON.'
+      });
+
+      // User message with multimodal content (images + text)
+      if (hasImages) {
+        // Vision model: send images along with captions
+        const content = [
+          {
+            type: 'text',
+            text: `Analyze these ${topPosts.length} Instagram posts and categorize them based on BOTH the images AND captions:
+
+Categorize each post:
+- topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+- emotion: Positive, Negative, Neutral, or Mixed
+
+Then provide overall time distribution (as percentages) weighted by these dwell times:
+${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
+
+Format:
+{
+  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "overall": {
+    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
+  }
+}
+
+Here are the posts:`
+          }
+        ];
+
+        // Add each post with image + caption
+        for (let i = 0; i < topPosts.length; i++) {
+          const post = topPosts[i];
+          content.push({
+            type: 'text',
+            text: `\n\nPost ${i+1}:`
+          });
+
+          // Add image if available
+          if (post.imageUrl) {
+            content.push({
+              type: 'image_url',
+              image_url: {
+                url: post.imageUrl
+              }
+            });
+          }
+
+          // Add caption
+          content.push({
+            type: 'text',
+            text: `Caption: "${post.caption || '(no caption)'}"`
+          });
+        }
+
+        messages.push({
+          role: 'user',
+          content: content
+        });
+
+      } else {
+        // Text-only model: just send captions
+        const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
+
+        messages.push({
+          role: 'user',
+          content: `Analyze these ${topPosts.length} social media posts and categorize them:
 
 POSTS:
 ${captions}
@@ -203,18 +279,9 @@ Format:
     "topics": {"Education": 0.15, "Sport": 0.25, ...},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
-}`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided. Respond ONLY with valid JSON.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
+}`
+        });
+      }
 
       // Call local LM Studio server (OpenAI-compatible API)
       const apiUrl = endpoint.endsWith('/v1') ? endpoint : endpoint + '/v1';
@@ -227,7 +294,7 @@ Format:
         body: JSON.stringify({
           messages: messages,
           temperature: 0.3,
-          max_tokens: 2000,
+          max_tokens: hasImages ? 3000 : 2000, // More tokens for vision model responses
           response_format: { type: 'json_object' }
         })
       });
@@ -250,7 +317,7 @@ Format:
         engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
-        analysisMethod: 'local-lmstudio',
+        analysisMethod: hasImages ? 'local-lmstudio-vision' : 'local-lmstudio',
         perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,

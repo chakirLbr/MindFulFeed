@@ -444,7 +444,9 @@ async function loadDashboard() {
       const method = fullAnalysis?.analysisMethod || 'heuristic';
       let methodDescription = '';
 
-      if (method === 'local-lmstudio') {
+      if (method === 'local-lmstudio-vision') {
+        methodDescription = `🖥️👁️ <strong style="color: #8b5cf6;">LM Studio Vision AI</strong> - 100% FREE, Private, Unlimited! Analyzes BOTH images AND captions with ~95% accuracy. <em>All processing happens on your computer - no data sent to internet!</em>`;
+      } else if (method === 'local-lmstudio') {
         methodDescription = `🖥️ <strong style="color: #8b5cf6;">LM Studio Local AI</strong> - 100% FREE, Private, Unlimited! Analyzes text captions with ~90-95% accuracy. <em>All processing happens on your computer - no data leaves your machine!</em>`;
       } else if (method.startsWith('puter-')) {
         // Extract model name from method like "puter-gpt-5-free"

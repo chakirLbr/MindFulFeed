@@ -58,6 +58,28 @@
     );
   }
 
+  function extractImageUrl(article) {
+    // Try to find the main image in the Instagram post
+    // Instagram uses <img> tags for images and videos have poster images
+
+    // Try main post image first (highest quality)
+    const img = article.querySelector('img[srcset]') || article.querySelector('img[src]');
+
+    if (img) {
+      // Prefer srcset for higher quality, fallback to src
+      const srcset = img.getAttribute('srcset');
+      if (srcset) {
+        // srcset format: "url1 width1, url2 width2, ..."
+        // Get the highest resolution URL (last one usually)
+        const urls = srcset.split(',').map(s => s.trim().split(' ')[0]);
+        return urls[urls.length - 1] || img.src;
+      }
+      return img.src;
+    }
+
+    return null; // No image found
+  }
+
   function extractCaption(article) {
     // Instagram DOM changes a lot. Use a resilient heuristic:
     // Try to expand "more" button first to get full caption
@@ -116,14 +138,20 @@
       posts.set(key, {
         href,
         caption: extractCaption(article),
+        imageUrl: extractImageUrl(article),
         firstSeenAt: now(),
         dwellMs: 0
       });
     } else {
-      // keep caption updated if it was empty earlier
+      // keep caption and imageUrl updated if they were empty earlier
       const p = posts.get(key);
-      if (p && (!p.caption || p.caption.length < 5)) {
-        p.caption = extractCaption(article);
+      if (p) {
+        if (!p.caption || p.caption.length < 5) {
+          p.caption = extractCaption(article);
+        }
+        if (!p.imageUrl) {
+          p.imageUrl = extractImageUrl(article);
+        }
       }
     }
     return key;
@@ -195,6 +223,7 @@
           key,
           href: p.href,
           caption: p.caption,
+          imageUrl: p.imageUrl,  // Include image URL for vision models!
           firstSeenAt: p.firstSeenAt,
           dwellMs: p.dwellMs
         }))
