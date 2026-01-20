@@ -222,8 +222,8 @@ Format:
         body: JSON.stringify({
           messages: messages,
           temperature: 0.3,
-          max_tokens: hasImages ? 3000 : 2000, // More tokens for vision model responses
-          response_format: { type: 'json_object' }
+          max_tokens: hasImages ? 3000 : 2000 // More tokens for vision model responses
+          // Note: LM Studio doesn't support response_format, relying on prompt instructions for JSON
         })
       });
 
