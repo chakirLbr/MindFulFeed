@@ -298,6 +298,12 @@ async function start() {
   sessionCounts[todayKey] = (sessionCounts[todayKey] || 0) + 1;
   await setSessionCounts(sessionCounts);
 
+  // Clear session history when starting a new session (fresh start)
+  console.clear(); // Clear console logs
+  console.log('[Service Worker] ===== NEW SESSION STARTED =====');
+  console.log('[Service Worker] Clearing session history for fresh start');
+  await chrome.storage.local.remove([SESSION_HISTORY_KEY]);
+
   await setSessionMeta({
     sessionId: sid,
     tabId: tab.id,

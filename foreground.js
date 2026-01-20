@@ -241,6 +241,11 @@
     sessionId = newSessionId;
     startedAt = newStartedAt;
 
+    // Clear console logs for fresh start
+    console.clear();
+    console.log('[MindfulFeed] ===== NEW SESSION STARTED =====');
+    console.log('[MindfulFeed] Session ID:', sessionId);
+
     // reset local structures
     posts.clear();
     ratios.clear();

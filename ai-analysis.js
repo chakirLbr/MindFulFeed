@@ -114,8 +114,14 @@ const AI_ANALYSIS = (() => {
     try {
       console.log('[AI Analysis] Using LM Studio local AI at:', endpoint);
 
-      // Prepare analysis data
-      const topPosts = posts.slice(0, 15); // Analyze top 15 posts (reduced for vision models - larger payloads)
+      // Prepare analysis data - analyze ALL posts seen in session (capped at 50 to prevent API limits)
+      const MAX_POSTS = 50; // Cap to prevent exceeding context limits and processing time
+      const topPosts = posts.slice(0, Math.min(posts.length, MAX_POSTS));
+
+      console.log(`[AI Analysis] Analyzing ${topPosts.length} posts out of ${posts.length} total posts seen`);
+      if (posts.length > MAX_POSTS) {
+        console.log(`[AI Analysis] Note: Capped at ${MAX_POSTS} posts to prevent API limits. Analyzing the first ${MAX_POSTS} posts.`);
+      }
 
       // Check if we have images (vision model support)
       const hasImages = topPosts.some(p => p.imageUrl);
