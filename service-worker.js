@@ -15,6 +15,7 @@ const RAW_SESSION_KEY = "mf_raw_session"; // dwell/caption snapshot from content
 const SESSION_META_KEY = "mf_session_meta"; // { sessionId, tabId, acceptFinalizeUntil }
 const SESSION_COUNT_KEY = "mf_daily_session_count"; // Track session count per day
 const SESSION_HISTORY_KEY = "mf_session_history"; // Array of recent sessions (keep last 20)
+const INCREMENTAL_ANALYSIS_KEY = "mf_incremental_analysis"; // Store incremental analysis results
 
 const defaultState = {
   isTracking: false,
@@ -134,6 +135,67 @@ async function addToSessionHistory(session) {
   });
 }
 
+async function getIncrementalAnalysis() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([INCREMENTAL_ANALYSIS_KEY], (r) => resolve(r[INCREMENTAL_ANALYSIS_KEY] || { analyzedPosts: [], results: null }));
+  });
+}
+
+async function setIncrementalAnalysis(data) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [INCREMENTAL_ANALYSIS_KEY]: data }, () => resolve());
+  });
+}
+
+async function clearIncrementalAnalysis() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove([INCREMENTAL_ANALYSIS_KEY], () => resolve());
+  });
+}
+
+/**
+ * Merge two analysis results by combining their metrics
+ */
+function mergeAnalysisResults(result1, result2) {
+  const totalDwell1 = result1.totalDwellMs || 0;
+  const totalDwell2 = result2.totalDwellMs || 0;
+  const combinedDwell = totalDwell1 + totalDwell2;
+
+  if (combinedDwell === 0) return result1;
+
+  // Weight by dwell time
+  const weight1 = totalDwell1 / combinedDwell;
+  const weight2 = totalDwell2 / combinedDwell;
+
+  // Merge topics
+  const mergedTopics = {};
+  for (const topic of Object.keys({...result1.topics, ...result2.topics})) {
+    mergedTopics[topic] = (result1.topics[topic] || 0) * weight1 + (result2.topics[topic] || 0) * weight2;
+  }
+
+  // Merge emotions
+  const mergedEmotions = {};
+  for (const emotion of Object.keys({...result1.emotions, ...result2.emotions})) {
+    mergedEmotions[emotion] = (result1.emotions[emotion] || 0) * weight1 + (result2.emotions[emotion] || 0) * weight2;
+  }
+
+  // Merge engagement
+  const mergedEngagement = {};
+  for (const eng of Object.keys({...result1.engagement, ...result2.engagement})) {
+    mergedEngagement[eng] = (result1.engagement[eng] || 0) * weight1 + (result2.engagement[eng] || 0) * weight2;
+  }
+
+  return {
+    topics: mergedTopics,
+    emotions: mergedEmotions,
+    engagement: mergedEngagement,
+    totalDwellMs: combinedDwell,
+    postsAnalyzed: (result1.postsAnalyzed || 0) + (result2.postsAnalyzed || 0),
+    analysisMethod: 'incremental',
+    insights: result1.insights || [] // Keep first insights for now
+  };
+}
+
 function newSessionId() {
   // small readable id
   return `s_${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
@@ -247,7 +309,25 @@ function generateSessionBreakdownDemo(durationMs, endedAtMs) {
 // AI-powered analysis with fallback to heuristics
 async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
   try {
-    // Extract posts from raw session data
+    // Check if we have incremental analysis results
+    const incrementalData = await getIncrementalAnalysis();
+
+    if (incrementalData.results && incrementalData.analyzedPosts.length > 0) {
+      console.log(`[MindfulFeed] Using incremental analysis results (${incrementalData.analyzedPosts.length} posts)`);
+
+      // Convert to legacy format for compatibility
+      const breakdown = AI_ANALYSIS.toLegacyFormat(incrementalData.results);
+
+      // Add full analysis for insights
+      breakdown.fullAnalysis = incrementalData.results;
+
+      // Clear incremental data after using it
+      await clearIncrementalAnalysis();
+
+      return breakdown;
+    }
+
+    // No incremental results - analyze now (fallback for when incremental analysis didn't run)
     const posts = raw?.posts || [];
 
     if (posts.length === 0) {
@@ -255,6 +335,8 @@ async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
       console.log('[MindfulFeed] No posts found, using demo breakdown');
       return generateSessionBreakdownDemo(durationMs, endedAtMs);
     }
+
+    console.log(`[MindfulFeed] No incremental results, analyzing ${posts.length} posts now...`);
 
     // Use AI analysis (with heuristic fallback)
     const analysis = await AI_ANALYSIS.analyzePostsBatch(posts);
@@ -298,11 +380,11 @@ async function start() {
   sessionCounts[todayKey] = (sessionCounts[todayKey] || 0) + 1;
   await setSessionCounts(sessionCounts);
 
-  // Clear session history when starting a new session (fresh start)
+  // Clear session history and incremental analysis when starting a new session (fresh start)
   console.clear(); // Clear console logs
   console.log('[Service Worker] ===== NEW SESSION STARTED =====');
-  console.log('[Service Worker] Clearing session history for fresh start');
-  await chrome.storage.local.remove([SESSION_HISTORY_KEY]);
+  console.log('[Service Worker] Clearing session history and incremental analysis for fresh start');
+  await chrome.storage.local.remove([SESSION_HISTORY_KEY, INCREMENTAL_ANALYSIS_KEY]);
 
   await setSessionMeta({
     sessionId: sid,
@@ -530,6 +612,51 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         await setSessionMeta({ sessionId: meta.sessionId, tabId: meta.tabId, acceptFinalizeUntil: 0 });
       }
       sendResponse({ ok: true });
+      return;
+    }
+
+    if (msg.type === "MFF_INCREMENTAL_ANALYSIS") {
+      const payload = msg.payload || null;
+      if (!payload || !payload.sessionId || !payload.posts) {
+        sendResponse({ ok: false, error: "Invalid payload" });
+        return;
+      }
+
+      const state = await getState();
+      if (!state.isTracking) {
+        sendResponse({ ok: true, ignored: true });
+        return;
+      }
+
+      console.log(`[Service Worker] Received incremental analysis for ${payload.posts.length} posts`);
+
+      try {
+        // Analyze these posts
+        const analysis = await AI_ANALYSIS.analyzePostsBatch(payload.posts);
+
+        // Get existing incremental results
+        const incrementalData = await getIncrementalAnalysis();
+
+        // Merge with existing results (append new posts)
+        incrementalData.analyzedPosts.push(...payload.posts);
+
+        // Store aggregate analysis results
+        if (!incrementalData.results) {
+          incrementalData.results = analysis;
+        } else {
+          // Merge analysis results (combine topic/emotion distributions)
+          incrementalData.results = mergeAnalysisResults(incrementalData.results, analysis);
+        }
+
+        await setIncrementalAnalysis(incrementalData);
+
+        console.log(`[Service Worker] Incremental analysis complete. Total analyzed: ${incrementalData.analyzedPosts.length}`);
+
+        sendResponse({ ok: true, totalAnalyzed: incrementalData.analyzedPosts.length });
+      } catch (error) {
+        console.error('[Service Worker] Incremental analysis error:', error);
+        sendResponse({ ok: false, error: error.message });
+      }
       return;
     }
 

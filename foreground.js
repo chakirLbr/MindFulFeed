@@ -7,23 +7,27 @@
   const ACTIVE_MIN_RATIO = 0.15;       // candidate for "active" post
   const TICK_MS = 250;                 // internal timing tick
   const PUSH_MS = 2000;                // send updates to background
+  const ANALYZE_MS = 10000;            // analyze posts every 10 seconds
 
   let tracking = false;
   let sessionId = null;
   let startedAt = 0;
 
-  /** @type {Map<string, {href: string, caption: string, firstSeenAt: number, dwellMs: number}>} */
+  /** @type {Map<string, {href: string, caption: string, imageUrl: string, firstSeenAt: number, dwellMs: number}>} */
   const posts = new Map();
   /** @type {Map<string, number>} */
   const ratios = new Map();
   /** @type {Map<string, number>} */
   const visibleSince = new Map();
+  /** @type {Set<string>} */
+  const analyzedPosts = new Set();     // Track which posts have been analyzed
 
   let activeKey = null;
   let io = null;
   let mo = null;
   let tickTimer = null;
   let pushTimer = null;
+  let analyzeTimer = null;             // Timer for incremental analysis
   let observing = new WeakSet();
 
   function now() {
@@ -333,18 +337,44 @@
   async function pushUpdate(finalize = false) {
     computeActive();
 
+    // IMPORTANT: Only analyze posts the user actually SAW (meaningful dwell time)
+    // Filter out posts that were just loaded in DOM but not viewed
+    const MIN_DWELL_MS = 2000; // 2 seconds minimum - user must have actually seen the post
+
+    const viewedPosts = Array.from(posts.entries())
+      .filter(([key, p]) => p.dwellMs >= MIN_DWELL_MS) // Only posts actually viewed
+      .sort((a, b) => b[1].dwellMs - a[1].dwellMs);
+
+    console.log(`[MindfulFeed] Total posts in DOM: ${posts.size}, Actually viewed (>2s): ${viewedPosts.length}`);
+
     // Get top posts by dwell time (will be analyzed by AI)
     // Limit to 10 for vision models to prevent VRAM exhaustion
-    const MAX_POSTS = finalize ? 10 : 50; // Only convert 10 images, but send 50 posts for text analysis
-    const topPosts = Array.from(posts.entries())
-      .sort((a, b) => b[1].dwellMs - a[1].dwellMs)
-      .slice(0, MAX_POSTS);
+    const MAX_POSTS = finalize ? 10 : 50;
+    const topPosts = viewedPosts.slice(0, Math.min(viewedPosts.length, MAX_POSTS));
+
+    if (topPosts.length === 0) {
+      console.log('[MindfulFeed] No posts with meaningful dwell time yet');
+      // Send empty snapshot
+      safeSend({
+        type: "MFF_RAW_UPDATE",
+        payload: {
+          sessionId,
+          startedAt,
+          finalize,
+          activeKey,
+          pageUrl: location.href,
+          posts: []
+        }
+      });
+      return;
+    }
 
     // Convert images to base64 ONLY when finalizing (end of session)
     // This avoids expensive conversions during regular tracking
     let postsData;
     if (finalize) {
-      console.log('[MindfulFeed] Finalizing session - converting images to base64...');
+      console.log(`[MindfulFeed] Finalizing session - analyzing ${topPosts.length} viewed posts...`);
+      console.log('[MindfulFeed] Converting images to base64...');
       postsData = await Promise.all(
         topPosts.map(async ([key, p]) => {
           // Find the article element for this post to get the image
@@ -354,7 +384,7 @@
           for (const article of articles) {
             const link = getPostLink(article);
             if (link && normalizeKey(link.href) === key) {
-              imageBase64 = extractImageBase64(article);
+              imageBase64 = await extractImageBase64(article);
               break;
             }
           }
@@ -397,6 +427,71 @@
     safeSend({ type: "MFF_RAW_UPDATE", payload: snapshot });
   }
 
+  /**
+   * Incremental analysis - analyze new posts while user scrolls
+   * Runs every 10 seconds to analyze posts that haven't been analyzed yet
+   */
+  async function analyzeNewPosts() {
+    if (!tracking) return;
+
+    const MIN_DWELL_MS = 2000; // Only analyze posts user actually viewed
+
+    // Find posts that haven't been analyzed yet but have meaningful dwell time
+    const newPosts = Array.from(posts.entries())
+      .filter(([key, p]) => p.dwellMs >= MIN_DWELL_MS && !analyzedPosts.has(key))
+      .sort((a, b) => b[1].dwellMs - a[1].dwellMs)
+      .slice(0, 5); // Analyze 5 posts at a time
+
+    if (newPosts.length === 0) {
+      console.log('[MindfulFeed] No new posts to analyze');
+      return;
+    }
+
+    console.log(`[MindfulFeed] Analyzing ${newPosts.length} new posts incrementally...`);
+
+    // Convert images for these posts
+    const postsWithImages = await Promise.all(
+      newPosts.map(async ([key, p]) => {
+        const articles = Array.from(document.querySelectorAll("article"));
+        let imageBase64 = null;
+
+        for (const article of articles) {
+          const link = getPostLink(article);
+          if (link && normalizeKey(link.href) === key) {
+            imageBase64 = await extractImageBase64(article);
+            break;
+          }
+        }
+
+        // Mark as analyzed
+        analyzedPosts.add(key);
+
+        return {
+          key,
+          href: p.href,
+          caption: p.caption,
+          imageUrl: p.imageUrl,
+          imageBase64: imageBase64,
+          firstSeenAt: p.firstSeenAt,
+          dwellMs: p.dwellMs
+        };
+      })
+    );
+
+    const successCount = postsWithImages.filter(p => p.imageBase64).length;
+    console.log(`[MindfulFeed] Incremental: Converted ${successCount}/${postsWithImages.length} images`);
+
+    // Send for incremental analysis
+    safeSend({
+      type: "MFF_INCREMENTAL_ANALYSIS",
+      payload: {
+        sessionId,
+        posts: postsWithImages,
+        isIncremental: true
+      }
+    });
+  }
+
   function startTracking({ newSessionId, newStartedAt }) {
     if (tracking) return;
     tracking = true;
@@ -412,6 +507,7 @@
     posts.clear();
     ratios.clear();
     visibleSince.clear();
+    analyzedPosts.clear();       // Clear analyzed posts for new session
     activeKey = null;
     observing = new WeakSet();
 
@@ -440,9 +536,12 @@
 
     tickTimer = setInterval(tick, TICK_MS);
     pushTimer = setInterval(() => pushUpdate(false), PUSH_MS);
+    analyzeTimer = setInterval(() => analyzeNewPosts(), ANALYZE_MS); // Analyze every 10s
 
     // immediate push so background knows session started
     pushUpdate(false);
+
+    console.log('[MindfulFeed] Incremental analysis enabled - analyzing posts every 10 seconds');
   }
 
   async function stopTracking() {
@@ -454,8 +553,10 @@
 
     if (tickTimer) clearInterval(tickTimer);
     if (pushTimer) clearInterval(pushTimer);
+    if (analyzeTimer) clearInterval(analyzeTimer);
     tickTimer = null;
     pushTimer = null;
+    analyzeTimer = null;
 
     if (io) io.disconnect();
     if (mo) mo.disconnect();
