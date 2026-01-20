@@ -87,17 +87,19 @@ const AI_ANALYSIS = (() => {
     try {
       console.log('[AI Analysis] Using LM Studio local AI at:', endpoint);
 
-      // Prepare analysis data - analyze ALL posts seen in session (capped at 50 to prevent API limits)
-      const MAX_POSTS = 50; // Cap to prevent exceeding context limits and processing time
+      // Prepare analysis data - analyze ALL posts seen in session
+      // Lower cap for vision models to prevent VRAM exhaustion
+      const hasAnyImages = posts.some(p => p.imageBase64);
+      const MAX_POSTS = hasAnyImages ? 10 : 50; // 10 for vision (VRAM limit), 50 for text-only
       const topPosts = posts.slice(0, Math.min(posts.length, MAX_POSTS));
 
       console.log(`[AI Analysis] Analyzing ${topPosts.length} posts out of ${posts.length} total posts seen`);
       if (posts.length > MAX_POSTS) {
-        console.log(`[AI Analysis] Note: Capped at ${MAX_POSTS} posts to prevent API limits. Analyzing the first ${MAX_POSTS} posts.`);
+        console.log(`[AI Analysis] Note: Capped at ${MAX_POSTS} posts to prevent ${hasAnyImages ? 'VRAM exhaustion' : 'API limits'}. Analyzing the first ${MAX_POSTS} posts.`);
       }
 
       // Check if we have images (vision model support)
-      const hasImages = topPosts.some(p => p.imageUrl);
+      const hasImages = topPosts.some(p => p.imageBase64);
       console.log('[AI Analysis] Vision model mode:', hasImages ? 'YES - analyzing images!' : 'NO - text only');
 
       // Build messages with multimodal content if images are available

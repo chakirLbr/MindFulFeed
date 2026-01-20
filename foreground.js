@@ -88,17 +88,32 @@
    */
   function convertImageToBase64(img) {
     try {
-      // Create a canvas with the image dimensions
+      // Resize image to reduce payload size and prevent VRAM exhaustion
+      const MAX_WIDTH = 640;  // Smaller size to prevent memory issues
+      const MAX_HEIGHT = 640;
+
+      let width = img.naturalWidth || img.width || 640;
+      let height = img.naturalHeight || img.height || 640;
+
+      // Calculate scaled dimensions while maintaining aspect ratio
+      if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+        const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      // Create a canvas with the scaled dimensions
       const canvas = document.createElement('canvas');
-      canvas.width = img.naturalWidth || img.width || 640;
-      canvas.height = img.naturalHeight || img.height || 640;
+      canvas.width = width;
+      canvas.height = height;
 
-      // Draw the image on canvas
+      // Draw the resized image on canvas
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
 
-      // Convert canvas to base64 (JPEG format for smaller size)
-      return canvas.toDataURL('image/jpeg', 0.85); // 85% quality for reasonable size
+      // Convert canvas to base64 (JPEG format with lower quality for smaller size)
+      // Lower quality (50%) to prevent VRAM exhaustion in vision models
+      return canvas.toDataURL('image/jpeg', 0.5);
     } catch (error) {
       console.error('[MindfulFeed] Error converting image to base64:', error);
       return null;
@@ -259,10 +274,12 @@
   async function pushUpdate(finalize = false) {
     computeActive();
 
-    // Get top 50 posts by dwell time (will be analyzed by AI)
+    // Get top posts by dwell time (will be analyzed by AI)
+    // Limit to 10 for vision models to prevent VRAM exhaustion
+    const MAX_POSTS = finalize ? 10 : 50; // Only convert 10 images, but send 50 posts for text analysis
     const topPosts = Array.from(posts.entries())
       .sort((a, b) => b[1].dwellMs - a[1].dwellMs)
-      .slice(0, 50);
+      .slice(0, MAX_POSTS);
 
     // Convert images to base64 ONLY when finalizing (end of session)
     // This avoids expensive conversions during regular tracking
