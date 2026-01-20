@@ -77,6 +77,35 @@ const AI_ANALYSIS = (() => {
   }
 
   /**
+   * Convert image URL to base64 data URI for vision models
+   * @param {string} imageUrl - Instagram image URL
+   * @returns {Promise<string|null>} Base64 data URI or null if failed
+   */
+  async function convertImageToBase64(imageUrl) {
+    try {
+      console.log('[AI Analysis] Converting image to base64:', imageUrl);
+
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        console.error('[AI Analysis] Failed to fetch image:', response.status);
+        return null;
+      }
+
+      const blob = await response.blob();
+
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (error) {
+      console.error('[AI Analysis] Error converting image to base64:', error);
+      return null;
+    }
+  }
+
+  /**
    * AI-powered analysis using LM Studio (local AI models)
    * @param {Array} posts - Posts to analyze
    * @param {string} endpoint - LM Studio API endpoint (e.g., http://localhost:1234/v1)
@@ -130,20 +159,39 @@ Here are the posts:`
         ];
 
         // Add each post with image + caption
-        for (let i = 0; i < topPosts.length; i++) {
-          const post = topPosts[i];
+        // Convert images to base64 first (required by LM Studio vision models)
+        console.log('[AI Analysis] Converting images to base64 for vision model...');
+        const postsWithBase64 = await Promise.all(
+          topPosts.map(async (post) => ({
+            ...post,
+            base64Image: post.imageUrl ? await convertImageToBase64(post.imageUrl) : null
+          }))
+        );
+
+        const successfulConversions = postsWithBase64.filter(p => p.base64Image).length;
+        console.log(`[AI Analysis] Successfully converted ${successfulConversions}/${topPosts.length} images to base64`);
+
+        // Build content with base64 images
+        for (let i = 0; i < postsWithBase64.length; i++) {
+          const post = postsWithBase64[i];
           content.push({
             type: 'text',
             text: `\n\nPost ${i+1}:`
           });
 
-          // Add image if available
-          if (post.imageUrl) {
+          // Add image if successfully converted to base64
+          if (post.base64Image) {
             content.push({
               type: 'image_url',
               image_url: {
-                url: post.imageUrl
+                url: post.base64Image  // Base64 data URI (data:image/jpeg;base64,...)
               }
+            });
+          } else if (post.imageUrl) {
+            // Image conversion failed, note it in the prompt
+            content.push({
+              type: 'text',
+              text: `(Image present but could not be loaded)`
             });
           }
 
