@@ -58,6 +58,52 @@
     );
   }
 
+  /**
+   * Extract optimal image size for vision model analysis
+   * Takes medium-resolution image (640w) from srcset instead of highest quality
+   * @param {HTMLElement} article - Instagram post article element
+   * @returns {HTMLImageElement|null} Image element or null if not found
+   */
+  function extractOptimalImageElement(article) {
+    const img = article.querySelector('img[srcset]') || article.querySelector('img[src]');
+    if (!img) return null;
+
+    const srcset = img.getAttribute('srcset');
+    if (srcset) {
+      // srcset format: "url1 width1, url2 width2, ..."
+      // Parse into array of {url, width}
+      const sources = srcset.split(',').map(s => {
+        const parts = s.trim().split(' ');
+        return {
+          url: parts[0],
+          width: parts[1] ? parseInt(parts[1]) : 0
+        };
+      });
+
+      // Find image closest to 640px (ideal for vision models)
+      // Prefer slightly larger over smaller for quality
+      const TARGET_WIDTH = 640;
+      let best = sources[0];
+      let bestDiff = Math.abs(best.width - TARGET_WIDTH);
+
+      for (const source of sources) {
+        const diff = Math.abs(source.width - TARGET_WIDTH);
+        // Prefer this source if it's closer to target, or same distance but larger
+        if (diff < bestDiff || (diff === bestDiff && source.width > best.width)) {
+          best = source;
+          bestDiff = diff;
+        }
+      }
+
+      // Create a temporary image element with the optimal size
+      const optimalImg = new Image();
+      optimalImg.src = best.url;
+      return optimalImg;
+    }
+
+    return img;
+  }
+
   function extractImageUrl(article) {
     // Try to find the main image in the Instagram post
     // Instagram uses <img> tags for images and videos have poster images
@@ -82,61 +128,74 @@
 
   /**
    * Convert an image element to base64 data URI
-   * This runs in the content script context where we have access to Instagram's images
+   * Uses Instagram's optimal-sized image (640w) to avoid unnecessary resizing
    * @param {HTMLImageElement} img - Image element from DOM
-   * @returns {string|null} Base64 data URI or null if failed
+   * @returns {Promise<string|null>} Base64 data URI or null if failed
    */
-  function convertImageToBase64(img) {
-    try {
-      // Resize image to reduce payload size and prevent VRAM exhaustion
-      const MAX_WIDTH = 640;  // Smaller size to prevent memory issues
-      const MAX_HEIGHT = 640;
+  async function convertImageToBase64(img) {
+    return new Promise((resolve) => {
+      try {
+        // Wait for image to load if it's not ready
+        if (!img.complete) {
+          img.onload = () => processImage(img, resolve);
+          img.onerror = () => {
+            console.error('[MindfulFeed] Image failed to load');
+            resolve(null);
+          };
+          // Timeout after 3 seconds
+          setTimeout(() => resolve(null), 3000);
+        } else {
+          processImage(img, resolve);
+        }
+      } catch (error) {
+        console.error('[MindfulFeed] Error converting image to base64:', error);
+        resolve(null);
+      }
+    });
+  }
 
+  function processImage(img, resolve) {
+    try {
+      const MAX_SIZE = 640;
       let width = img.naturalWidth || img.width || 640;
       let height = img.naturalHeight || img.height || 640;
 
-      // Calculate scaled dimensions while maintaining aspect ratio
-      if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-        const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+      // Only resize if larger than 640px (Instagram 640w images shouldn't need resizing)
+      if (width > MAX_SIZE || height > MAX_SIZE) {
+        const ratio = Math.min(MAX_SIZE / width, MAX_SIZE / height);
         width = Math.round(width * ratio);
         height = Math.round(height * ratio);
       }
 
-      // Create a canvas with the scaled dimensions
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
 
-      // Draw the resized image on canvas
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Convert canvas to base64 (JPEG format with lower quality for smaller size)
-      // Lower quality (50%) to prevent VRAM exhaustion in vision models
-      return canvas.toDataURL('image/jpeg', 0.5);
+      // 60% quality for good balance between size and visual quality
+      const base64 = canvas.toDataURL('image/jpeg', 0.6);
+      resolve(base64);
     } catch (error) {
-      console.error('[MindfulFeed] Error converting image to base64:', error);
-      return null;
+      console.error('[MindfulFeed] Error processing image:', error);
+      resolve(null);
     }
   }
 
   /**
-   * Extract image element and convert to base64
+   * Extract optimal-sized image and convert to base64
+   * Uses Instagram's 640w image from srcset for efficiency
    * @param {HTMLElement} article - Instagram post article element
-   * @returns {string|null} Base64 data URI or null if failed
+   * @returns {Promise<string|null>} Base64 data URI or null if failed
    */
-  function extractImageBase64(article) {
+  async function extractImageBase64(article) {
     try {
-      const img = article.querySelector('img[srcset]') || article.querySelector('img[src]');
+      // Get optimal-sized image (640w from srcset)
+      const img = extractOptimalImageElement(article);
       if (!img) return null;
 
-      // Check if image is loaded
-      if (!img.complete || !img.naturalWidth) {
-        console.log('[MindfulFeed] Image not fully loaded yet, skipping base64 conversion');
-        return null;
-      }
-
-      return convertImageToBase64(img);
+      return await convertImageToBase64(img);
     } catch (error) {
       console.error('[MindfulFeed] Error extracting image base64:', error);
       return null;
