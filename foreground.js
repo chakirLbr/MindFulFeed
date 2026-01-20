@@ -80,6 +80,54 @@
     return null; // No image found
   }
 
+  /**
+   * Convert an image element to base64 data URI
+   * This runs in the content script context where we have access to Instagram's images
+   * @param {HTMLImageElement} img - Image element from DOM
+   * @returns {string|null} Base64 data URI or null if failed
+   */
+  function convertImageToBase64(img) {
+    try {
+      // Create a canvas with the image dimensions
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth || img.width || 640;
+      canvas.height = img.naturalHeight || img.height || 640;
+
+      // Draw the image on canvas
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      // Convert canvas to base64 (JPEG format for smaller size)
+      return canvas.toDataURL('image/jpeg', 0.85); // 85% quality for reasonable size
+    } catch (error) {
+      console.error('[MindfulFeed] Error converting image to base64:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract image element and convert to base64
+   * @param {HTMLElement} article - Instagram post article element
+   * @returns {string|null} Base64 data URI or null if failed
+   */
+  function extractImageBase64(article) {
+    try {
+      const img = article.querySelector('img[srcset]') || article.querySelector('img[src]');
+      if (!img) return null;
+
+      // Check if image is loaded
+      if (!img.complete || !img.naturalWidth) {
+        console.log('[MindfulFeed] Image not fully loaded yet, skipping base64 conversion');
+        return null;
+      }
+
+      return convertImageToBase64(img);
+    } catch (error) {
+      console.error('[MindfulFeed] Error extracting image base64:', error);
+      return null;
+    }
+  }
+
   function extractCaption(article) {
     // Instagram DOM changes a lot. Use a resilient heuristic:
     // Try to expand "more" button first to get full caption
@@ -208,28 +256,66 @@
     visibleSince.clear();
   }
 
-  function pushUpdate(finalize = false) {
+  async function pushUpdate(finalize = false) {
     computeActive();
 
-    // Send a compact snapshot (no huge payloads)
+    // Get top 50 posts by dwell time (will be analyzed by AI)
+    const topPosts = Array.from(posts.entries())
+      .sort((a, b) => b[1].dwellMs - a[1].dwellMs)
+      .slice(0, 50);
+
+    // Convert images to base64 ONLY when finalizing (end of session)
+    // This avoids expensive conversions during regular tracking
+    let postsData;
+    if (finalize) {
+      console.log('[MindfulFeed] Finalizing session - converting images to base64...');
+      postsData = await Promise.all(
+        topPosts.map(async ([key, p]) => {
+          // Find the article element for this post to get the image
+          const articles = Array.from(document.querySelectorAll("article"));
+          let imageBase64 = null;
+
+          for (const article of articles) {
+            const link = getPostLink(article);
+            if (link && normalizeKey(link.href) === key) {
+              imageBase64 = extractImageBase64(article);
+              break;
+            }
+          }
+
+          return {
+            key,
+            href: p.href,
+            caption: p.caption,
+            imageUrl: p.imageUrl,
+            imageBase64: imageBase64,  // Base64 data for vision models!
+            firstSeenAt: p.firstSeenAt,
+            dwellMs: p.dwellMs
+          };
+        })
+      );
+      const successCount = postsData.filter(p => p.imageBase64).length;
+      console.log(`[MindfulFeed] Converted ${successCount}/${postsData.length} images to base64`);
+    } else {
+      // Regular updates during tracking - no base64 conversion
+      postsData = topPosts.map(([key, p]) => ({
+        key,
+        href: p.href,
+        caption: p.caption,
+        imageUrl: p.imageUrl,
+        firstSeenAt: p.firstSeenAt,
+        dwellMs: p.dwellMs
+      }));
+    }
+
+    // Send a compact snapshot
     const snapshot = {
       sessionId,
       startedAt,
       finalize,
       activeKey,
       pageUrl: location.href,
-      posts: Array.from(posts.entries())
-        .map(([key, p]) => ({
-          key,
-          href: p.href,
-          caption: p.caption,
-          imageUrl: p.imageUrl,  // Include image URL for vision models!
-          firstSeenAt: p.firstSeenAt,
-          dwellMs: p.dwellMs
-        }))
-        // keep only most relevant (top dwell)
-        .sort((a, b) => b.dwellMs - a.dwellMs)
-        .slice(0, 40)
+      posts: postsData
     };
 
     safeSend({ type: "MFF_RAW_UPDATE", payload: snapshot });
@@ -283,12 +369,12 @@
     pushUpdate(false);
   }
 
-  function stopTracking() {
+  async function stopTracking() {
     if (!tracking) return;
     tracking = false;
 
     finalizeDwell();
-    pushUpdate(true);
+    await pushUpdate(true);  // Wait for image conversion to complete
 
     if (tickTimer) clearInterval(tickTimer);
     if (pushTimer) clearInterval(pushTimer);
