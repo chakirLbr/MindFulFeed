@@ -13,46 +13,104 @@
           <img class="brandLogo" src="../logo/logo-main.png" alt="MindfulFeed logo" />
           <div class="brandText">
             <div class="brandName">MindfulFeed</div>
+            <div id="monitoringStatus" class="monitoringStatus">Not tracking</div>
           </div>
         </div>
 
-        <button id="closeBtn" class="closeBtn" aria-label="Close">×</button>
+        <button id="menuBtn" class="menuBtn" aria-label="Menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="4" y="6" width="16" height="2" rx="1" fill="currentColor"/>
+            <rect x="4" y="11" width="16" height="2" rx="1" fill="currentColor"/>
+            <rect x="4" y="16" width="16" height="2" rx="1" fill="currentColor"/>
+          </svg>
+        </button>
       </header>
 
-      <section class="grid">
-        <div class="panel">
-          <h2 class="panelTitle">Analytics</h2>
-          <button id="analyticsBtn" class="iconBtn square" aria-label="Open analytics">
-            <!-- bar chart icon -->
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <rect x="4" y="10" width="3" height="9" rx="1.2" fill="currentColor"/>
-              <rect x="10.5" y="6" width="3" height="13" rx="1.2" fill="currentColor" opacity="0.9"/>
-              <rect x="17" y="13" width="3" height="6" rx="1.2" fill="currentColor" opacity="0.85"/>
+      <div class="content">
+        <!-- Stats Section -->
+        <section class="statsSection">
+          <div class="statCard">
+            <svg class="statIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 6V12L16 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div id="sessionTime" class="statValue">0m</div>
+            <div class="statLabel">This session</div>
+          </div>
+
+          <div class="statCard">
+            <svg class="statIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <div id="postsCount" class="statValue">0</div>
+            <div class="statLabel">Posts seen</div>
+          </div>
+
+          <div class="statCard">
+            <svg class="statIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3L14.5 8.5L20 9.5L16 13.5L17 19L12 16L7 19L8 13.5L4 9.5L9.5 8.5L12 3Z" fill="currentColor"/>
+            </svg>
+            <div id="dominantEmotion" class="statValue">-</div>
+            <div class="statLabel">Dominant</div>
+          </div>
+        </section>
+
+        <!-- Daily Goal Progress -->
+        <section class="progressSection">
+          <div class="progressHeader">
+            <span class="progressLabel">Daily goal progress</span>
+            <span id="progressText" class="progressText">0/60 min</span>
+          </div>
+          <div class="progressBar">
+            <div id="progressFill" class="progressFill"></div>
+          </div>
+        </section>
+
+        <!-- Emotion Chart -->
+        <section class="emotionSection">
+          <svg id="emotionChart" class="emotionChart" viewBox="0 0 200 200"></svg>
+          <div id="emotionLegend" class="emotionLegend"></div>
+        </section>
+
+        <!-- Reflection Prompt -->
+        <section id="reflectionSection" class="reflectionSection" style="display: none;">
+          <p id="reflectionPrompt" class="reflectionPrompt"></p>
+        </section>
+
+        <!-- Content Breakdown -->
+        <section class="breakdownSection">
+          <button id="breakdownToggle" class="breakdownToggle">
+            <span>Content breakdown</span>
+            <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9L12 15L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
-          <div class="panelHint">View your session dashboard</div>
-        </div>
+          <div id="breakdownContent" class="breakdownContent"></div>
+        </section>
 
-        <div class="panel">
-          <h2 id="startTitle" class="panelTitle">Start Extension</h2>
-          <button id="toggleBtn" class="iconBtn circle" aria-label="Start tracking">
-            <span class="iconLayer">
-              <!-- Play/Pause icons (toggled via JS) -->
-              <svg id="playIcon" width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <path d="M9 7.5V16.5C9 17.3 9.9 17.8 10.6 17.4L18 12.9C18.7 12.5 18.7 11.5 18 11.1L10.6 6.6C9.9 6.2 9 6.7 9 7.5Z" fill="currentColor"/>
-              </svg>
-              <svg id="pauseIcon" width="44" height="44" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="display:none">
-                <rect x="7" y="6.5" width="3.2" height="11" rx="1.2" fill="currentColor"/>
-                <rect x="13.8" y="6.5" width="3.2" height="11" rx="1.2" fill="currentColor"/>
-              </svg>
-            </span>
-            <span class="ring" aria-hidden="true"></span>
+        <!-- Action Buttons -->
+        <section class="actionSection">
+          <button id="toggleBtn" class="actionBtn secondary">
+            <svg id="playIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M9 7.5V16.5C9 17.3 9.9 17.8 10.6 17.4L18 12.9C18.7 12.5 18.7 11.5 18 11.1L10.6 6.6C9.9 6.2 9 6.7 9 7.5Z" fill="currentColor"/>
+            </svg>
+            <svg id="pauseIcon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:none">
+              <rect x="7" y="6.5" width="3.2" height="11" rx="1.2" fill="currentColor"/>
+              <rect x="13.8" y="6.5" width="3.2" height="11" rx="1.2" fill="currentColor"/>
+            </svg>
+            <span id="toggleText">Start tracking</span>
           </button>
 
-          <div id="time" class="time">00:00:00</div>
-          <div id="status" class="status">Not tracking</div>
-        </div>
-      </section>
+          <button id="analyticsBtn" class="actionBtn primary">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="10" width="3" height="9" rx="1.2" fill="currentColor"/>
+              <rect x="10.5" y="6" width="3" height="13" rx="1.2" fill="currentColor"/>
+              <rect x="17" y="13" width="3" height="6" rx="1.2" fill="currentColor"/>
+            </svg>
+            <span>Dashboard</span>
+          </button>
+        </section>
+      </div>
     </div>
 
     <script src="popup.js"></script>

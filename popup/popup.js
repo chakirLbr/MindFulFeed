@@ -1,28 +1,27 @@
+// DOM Elements
+const monitoringStatus = document.getElementById("monitoringStatus");
+const sessionTime = document.getElementById("sessionTime");
+const postsCount = document.getElementById("postsCount");
+const dominantEmotion = document.getElementById("dominantEmotion");
+const progressFill = document.getElementById("progressFill");
+const progressText = document.getElementById("progressText");
+const emotionChart = document.getElementById("emotionChart");
+const emotionLegend = document.getElementById("emotionLegend");
+const reflectionSection = document.getElementById("reflectionSection");
+const reflectionPrompt = document.getElementById("reflectionPrompt");
+const breakdownToggle = document.getElementById("breakdownToggle");
+const breakdownContent = document.getElementById("breakdownContent");
 const toggleBtn = document.getElementById("toggleBtn");
+const toggleText = document.getElementById("toggleText");
 const analyticsBtn = document.getElementById("analyticsBtn");
-const closeBtn = document.getElementById("closeBtn");
-
-const timeEl = document.getElementById("time");
-const statusEl = document.getElementById("status");
-const startTitleEl = document.getElementById("startTitle");
-
+const menuBtn = document.getElementById("menuBtn");
 const playIcon = document.getElementById("playIcon");
 const pauseIcon = document.getElementById("pauseIcon");
 
 let uiInterval = null;
+let processingCheckInterval = null;
 
-function pad2(n) {
-  return String(n).padStart(2, "0");
-}
-
-function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)}`;
-}
-
+// Utility functions
 function send(type) {
   return new Promise((resolve) => {
     chrome.runtime.sendMessage({ type }, (res) => {
@@ -33,74 +32,260 @@ function send(type) {
   });
 }
 
-function render({ isTracking, elapsedMs }) {
-  timeEl.textContent = formatTime(elapsedMs);
+function formatTime(ms) {
+  const totalMinutes = Math.floor(ms / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
 
-  if (isTracking) {
-    statusEl.textContent = "Tracking your feed...";
-    statusEl.classList.add("tracking");
-    startTitleEl.textContent = "Stop Extension";
-
-    playIcon.style.display = "none";
-    pauseIcon.style.display = "block";
-    toggleBtn.classList.add("tracking");
-    toggleBtn.setAttribute("aria-label", "Stop tracking");
-  } else {
-    statusEl.textContent = elapsedMs > 0 ? "Stopped" : "Not tracking";
-    statusEl.classList.remove("tracking");
-    startTitleEl.textContent = "Start Extension";
-
-    playIcon.style.display = "block";
-    pauseIcon.style.display = "none";
-    toggleBtn.classList.remove("tracking");
-    toggleBtn.setAttribute("aria-label", "Start tracking");
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
   }
+  return `${minutes}m`;
 }
 
-function showError(message) {
-  statusEl.textContent = message;
-  statusEl.classList.remove("tracking");
-  console.error("MindfulFeed popup error:", message);
+function formatTimeShort(ms) {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-async function refreshFromBackground() {
-  const res = await send("GET_STATE");
-  if (!res || !res.ok) {
-    showError(res?.error || "Background not responding");
+// Draw donut chart
+function drawEmotionDonut(emotions) {
+  const { Positive = 0, Neutral = 0, Negative = 0 } = emotions;
+  const total = Positive + Neutral + Negative;
+
+  if (total === 0) {
+    emotionChart.innerHTML = '';
+    emotionLegend.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;">No data yet</div>';
     return;
   }
-  render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
 
-  // Check if AI is still processing and disable Analytics button if so
+  const positivePercent = Math.round((Positive / total) * 100);
+  const neutralPercent = Math.round((Neutral / total) * 100);
+  const negativePercent = 100 - positivePercent - neutralPercent;
+
+  // Draw donut chart
+  const radius = 70;
+  const strokeWidth = 24;
+  const centerX = 100;
+  const centerY = 100;
+  const circumference = 2 * Math.PI * radius;
+
+  let currentAngle = -90; // Start at top
+
+  const segments = [
+    { percent: positivePercent, color: '#5CB85C', label: 'Positive' },
+    { percent: neutralPercent, color: '#F0AD4E', label: 'Neutral' },
+    { percent: negativePercent, color: '#D9534F', label: 'Negative' }
+  ];
+
+  let svgContent = '';
+
+  segments.forEach((segment, index) => {
+    if (segment.percent > 0) {
+      const angle = (segment.percent / 100) * 360;
+      const endAngle = currentAngle + angle;
+
+      const startRad = (currentAngle * Math.PI) / 180;
+      const endRad = (endAngle * Math.PI) / 180;
+
+      const x1 = centerX + radius * Math.cos(startRad);
+      const y1 = centerY + radius * Math.sin(startRad);
+      const x2 = centerX + radius * Math.cos(endRad);
+      const y2 = centerY + radius * Math.sin(endRad);
+
+      const largeArcFlag = angle > 180 ? 1 : 0;
+
+      const pathData = [
+        `M ${centerX} ${centerY}`,
+        `L ${x1} ${y1}`,
+        `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+        'Z'
+      ].join(' ');
+
+      svgContent += `<path d="${pathData}" fill="${segment.color}" opacity="0.9"/>`;
+      currentAngle = endAngle;
+    }
+  });
+
+  // Inner circle (donut hole)
+  const innerRadius = radius - strokeWidth;
+  svgContent += `<circle cx="${centerX}" cy="${centerY}" r="${innerRadius}" fill="white"/>`;
+
+  // Center text
+  const dominantSegment = segments.reduce((max, seg) => seg.percent > max.percent ? seg : max);
+  svgContent += `
+    <text x="${centerX}" y="${centerY - 8}" text-anchor="middle" font-size="32" font-weight="700" fill="${dominantSegment.color}">${dominantSegment.percent}%</text>
+    <text x="${centerX}" y="${centerY + 18}" text-anchor="middle" font-size="14" fill="${dominantSegment.color}" opacity="0.8">${dominantSegment.label}</text>
+  `;
+
+  emotionChart.innerHTML = svgContent;
+
+  // Update legend
+  let legendHTML = '';
+  segments.forEach(segment => {
+    legendHTML += `
+      <div class="legendItem">
+        <div class="legendColor" style="background:${segment.color}"></div>
+        <span class="legendLabel">${segment.label}</span>
+        <span class="legendPercent">${segment.percent}%</span>
+      </div>
+    `;
+  });
+  emotionLegend.innerHTML = legendHTML;
+}
+
+// Update UI from state
+async function updateUI() {
+  const stateRes = await send("GET_STATE");
+  if (!stateRes || !stateRes.ok) {
+    console.error("Failed to get state:", stateRes?.error);
+    return;
+  }
+
+  const { isTracking, elapsedMs } = stateRes;
+  const { state } = stateRes;
+
+  // Update monitoring status
+  if (isTracking) {
+    monitoringStatus.textContent = "Monitoring Instagram";
+    monitoringStatus.classList.remove("inactive");
+    toggleBtn.classList.add("tracking");
+    toggleText.textContent = "Stop tracking";
+    playIcon.style.display = "none";
+    pauseIcon.style.display = "block";
+  } else {
+    monitoringStatus.textContent = "Not tracking";
+    monitoringStatus.classList.add("inactive");
+    toggleBtn.classList.remove("tracking");
+    toggleText.textContent = "Start tracking";
+    playIcon.style.display = "block";
+    pauseIcon.style.display = "none";
+  }
+
+  // Update session time
+  sessionTime.textContent = formatTime(elapsedMs);
+
+  // Get session data
+  const rawSession = await getStorageData('mf_raw_session');
+  const lastSession = await getStorageData('mf_last_session');
+  const dailyStats = await getStorageData('mf_daily_stats');
+
+  // Update posts count
+  if (isTracking && rawSession && rawSession.posts) {
+    postsCount.textContent = rawSession.posts.length;
+  } else if (lastSession && lastSession.raw && lastSession.raw.posts) {
+    postsCount.textContent = lastSession.raw.posts.length;
+  } else {
+    postsCount.textContent = "0";
+  }
+
+  // Update emotion data
+  let emotions = { Positive: 0, Neutral: 0, Negative: 0 };
+  let topics = {};
+
+  if (lastSession && lastSession.emotions) {
+    // Map old emotion names to new ones
+    emotions = {
+      Positive: lastSession.emotions.Light || 0,
+      Neutral: lastSession.emotions.Neutral || 0,
+      Negative: lastSession.emotions.Heavy || 0
+    };
+  }
+
+  if (lastSession && lastSession.topics) {
+    topics = lastSession.topics;
+  }
+
+  // Determine dominant emotion
+  const maxEmotion = Object.keys(emotions).reduce((a, b) =>
+    emotions[a] > emotions[b] ? a : b
+  );
+
+  const totalEmotionTime = Object.values(emotions).reduce((sum, val) => sum + val, 0);
+  if (totalEmotionTime > 0) {
+    dominantEmotion.textContent = maxEmotion.substring(0, 3);
+  } else {
+    dominantEmotion.textContent = "-";
+  }
+
+  // Draw emotion donut
+  drawEmotionDonut(emotions);
+
+  // Update daily progress
+  const today = new Date().toISOString().split('T')[0];
+  const dailyGoal = 60 * 60 * 1000; // 60 minutes in ms
+  let todayTotal = 0;
+
+  if (dailyStats && dailyStats[today]) {
+    todayTotal = dailyStats[today].totalMs || 0;
+  }
+
+  const progressPercent = Math.min(100, (todayTotal / dailyGoal) * 100);
+  const todayMinutes = Math.floor(todayTotal / 60000);
+  const goalMinutes = 60;
+
+  progressFill.style.width = `${progressPercent}%`;
+  progressText.textContent = `${todayMinutes}/${goalMinutes} min`;
+
+  // Update reflection prompt
+  if (lastSession && !isTracking && elapsedMs > 120000) {
+    reflectionSection.style.display = "block";
+    reflectionPrompt.textContent = "Take a moment to notice how this content makes you feel.";
+  } else {
+    reflectionSection.style.display = "none";
+  }
+
+  // Update content breakdown
+  if (Object.keys(topics).length > 0) {
+    let breakdownHTML = '';
+    Object.entries(topics)
+      .sort(([, a], [, b]) => b - a)
+      .forEach(([topic, ms]) => {
+        breakdownHTML += `
+          <div class="topicItem">
+            <span class="topicName">${topic}</span>
+            <span class="topicTime">${formatTime(ms)}</span>
+          </div>
+        `;
+      });
+    breakdownContent.innerHTML = breakdownHTML;
+  } else {
+    breakdownContent.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:12px 0;">No data yet</div>';
+  }
+
+  // Update analytics button state
   await updateAnalyticsButton();
+}
+
+function getStorageData(key) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([key], (result) => {
+      resolve(result[key]);
+    });
+  });
 }
 
 async function updateAnalyticsButton() {
   const statusRes = await send("GET_PROCESSING_STATUS");
 
   if (statusRes && statusRes.ok && statusRes.status && statusRes.status.isProcessing) {
-    // Disable analytics button while processing
     analyticsBtn.disabled = true;
     analyticsBtn.style.opacity = '0.5';
-    analyticsBtn.style.cursor = 'not-allowed';
     analyticsBtn.title = 'Please wait, analyzing session...';
   } else {
-    // Enable analytics button
     analyticsBtn.disabled = false;
     analyticsBtn.style.opacity = '1';
-    analyticsBtn.style.cursor = 'pointer';
     analyticsBtn.title = 'View your session dashboard';
-
-    // Stop checking once processing is done
     stopProcessingCheck();
   }
 }
 
-let processingCheckInterval = null;
-
 function startUiTicking() {
   if (uiInterval) return;
-  uiInterval = setInterval(refreshFromBackground, 500);
+  uiInterval = setInterval(updateUI, 1000);
 }
 
 function stopUiTicking() {
@@ -111,7 +296,7 @@ function stopUiTicking() {
 
 function startProcessingCheck() {
   if (processingCheckInterval) return;
-  processingCheckInterval = setInterval(updateAnalyticsButton, 1000); // Check every second
+  processingCheckInterval = setInterval(updateAnalyticsButton, 1000);
 }
 
 function stopProcessingCheck() {
@@ -120,57 +305,68 @@ function stopProcessingCheck() {
   processingCheckInterval = null;
 }
 
+// Event listeners
 toggleBtn.addEventListener("click", async () => {
   const stateRes = await send("GET_STATE");
   if (!stateRes || !stateRes.ok) {
-    showError(stateRes?.error || "Background not responding");
+    console.error("Failed to get state");
     return;
   }
 
   if (stateRes.state.isTracking) {
     const res = await send("STOP");
-    if (!res || !res.ok) return showError(res?.error || "Failed to stop");
-    render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
+    if (!res || !res.ok) {
+      console.error("Failed to stop");
+      return;
+    }
     stopUiTicking();
-
-    // Start checking processing status (will disable Analytics button)
     startProcessingCheck();
-    await updateAnalyticsButton(); // Immediate check
+    await updateAnalyticsButton();
 
-    // Open reflection page immediately (if session was longer than 2 minutes)
-    // The reflection page will show loading screen while AI analyzes the session
+    // Open reflection page if session was longer than 2 minutes
     if (res.elapsedMs > 120000) {
       const reflectionUrl = chrome.runtime.getURL("popup/reflection.html");
       window.open(reflectionUrl, "_blank");
     }
   } else {
     const res = await send("START");
-    if (!res || !res.ok) return showError(res?.error || "Failed to start");
-    render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
+    if (!res || !res.ok) {
+      console.error("Failed to start");
+      return;
+    }
     startUiTicking();
   }
+
+  await updateUI();
 });
 
 analyticsBtn.addEventListener("click", () => {
-  // Open in a normal tab (dashboard needs space). No tabs permission required.
   const url = chrome.runtime.getURL("popup/summary.html");
   window.open(url, "_blank");
 });
 
-closeBtn.addEventListener("click", () => window.close());
+breakdownToggle.addEventListener("click", () => {
+  breakdownToggle.classList.toggle("open");
+  breakdownContent.classList.toggle("open");
+});
 
-// Init
+menuBtn.addEventListener("click", () => {
+  // Open settings or show menu
+  const url = chrome.runtime.getURL("settings/settings.html");
+  window.open(url, "_blank");
+});
+
+// Initialize
 (async () => {
-  await refreshFromBackground();
+  await updateUI();
   const res = await send("GET_STATE");
   if (!res || !res.ok) return;
+
   if (res.state.isTracking) {
     startUiTicking();
   } else {
-    // Check if processing is ongoing when popup opens while not tracking
     const statusRes = await send("GET_PROCESSING_STATUS");
     if (statusRes && statusRes.ok && statusRes.status && statusRes.status.isProcessing) {
-      // Start checking if processing is ongoing
       startProcessingCheck();
     }
   }
