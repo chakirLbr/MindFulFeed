@@ -240,14 +240,16 @@ async function updateUI() {
 
   // Update content breakdown
   if (Object.keys(topics).length > 0) {
+    const totalMs = Object.values(topics).reduce((sum, ms) => sum + ms, 0);
     let breakdownHTML = '';
     Object.entries(topics)
       .sort(([, a], [, b]) => b - a)
       .forEach(([topic, ms]) => {
+        const percentage = totalMs > 0 ? Math.round((ms / totalMs) * 100) : 0;
         breakdownHTML += `
           <div class="topicItem">
             <span class="topicName">${topic}</span>
-            <span class="topicTime">${formatTime(ms)}</span>
+            <span class="topicTime">${percentage}%</span>
           </div>
         `;
       });
