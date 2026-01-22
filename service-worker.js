@@ -683,6 +683,17 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   });
 
   console.log('[MindfulFeed] Background session processing complete');
+
+  // Open reflection page after analysis completes
+  try {
+    await chrome.tabs.create({
+      url: chrome.runtime.getURL('popup/reflection.html'),
+      active: true
+    });
+    console.log('[MindfulFeed] Reflection page opened');
+  } catch (error) {
+    console.error('[MindfulFeed] Failed to open reflection page:', error);
+  }
 }
 
 async function reset() {

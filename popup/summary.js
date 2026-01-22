@@ -392,7 +392,8 @@ function arcPath(cx, cy, r, startAngle, endAngle) {
   const y1 = cy + r * Math.sin(startAngle);
   const x2 = cx + r * Math.cos(endAngle);
   const y2 = cy + r * Math.sin(endAngle);
-  const largeArc = endAngle - startAngle <= Math.PI ? 0 : 1;
+  // Use absolute difference to handle both clockwise and counterclockwise arcs
+  const largeArc = Math.abs(endAngle - startAngle) > Math.PI ? 1 : 0;
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 }
 
