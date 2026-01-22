@@ -11,6 +11,154 @@ const EMOTIONS = [
   { key: "Neutral", colorVar: "--e-neutral", desc: "Neutral content" }
 ];
 
+// Processing status helpers
+async function sendMessage(msg) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (res) => {
+      if (chrome.runtime.lastError) {
+        resolve({ ok: false, error: chrome.runtime.lastError.message });
+      } else {
+        resolve(res);
+      }
+    });
+  });
+}
+
+async function checkProcessingStatus() {
+  const res = await sendMessage({ type: 'GET_PROCESSING_STATUS' });
+  if (res && res.ok && res.status) {
+    return res.status;
+  }
+  return null;
+}
+
+function showLoadingScreen(status) {
+  let loadingScreen = document.getElementById('loadingScreen');
+
+  if (!loadingScreen) {
+    loadingScreen = document.createElement('div');
+    loadingScreen.id = 'loadingScreen';
+    loadingScreen.innerHTML = `
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <h2>Analyzing Your Session</h2>
+        <p id="loadingMessage">Getting ready...</p>
+        <div class="progress-bar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+        <p id="progressText" class="progress-text">0%</p>
+      </div>
+    `;
+    document.body.appendChild(loadingScreen);
+
+    const style = document.createElement('style');
+    style.textContent = `
+      #loadingScreen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+
+      .loading-content {
+        text-align: center;
+        max-width: 500px;
+        padding: 2rem;
+      }
+
+      .loading-spinner {
+        width: 60px;
+        height: 60px;
+        margin: 0 auto 1.5rem;
+        border: 4px solid #e2e8f0;
+        border-top-color: #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .loading-content h2 {
+        color: #2d3748;
+        margin-bottom: 0.5rem;
+      }
+
+      #loadingMessage {
+        color: #4a5568;
+        margin-bottom: 1.5rem;
+        font-size: 1rem;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        transition: width 0.3s ease;
+        width: 0%;
+      }
+
+      .progress-text {
+        color: #718096;
+        font-size: 0.875rem;
+        font-weight: 500;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  if (status) {
+    document.getElementById('loadingMessage').textContent = status.step || 'Processing...';
+    document.getElementById('progressFill').style.width = `${status.progress || 0}%`;
+    document.getElementById('progressText').textContent = `${status.progress || 0}%`;
+  }
+}
+
+function hideLoadingScreen() {
+  const loadingScreen = document.getElementById('loadingScreen');
+  if (loadingScreen) {
+    loadingScreen.remove();
+  }
+}
+
+async function waitForProcessing() {
+  showLoadingScreen({ step: 'Starting analysis...', progress: 0 });
+
+  let attempts = 0;
+  const maxAttempts = 60;
+
+  while (attempts < maxAttempts) {
+    const status = await checkProcessingStatus();
+
+    if (!status || !status.isProcessing) {
+      hideLoadingScreen();
+      return true;
+    }
+
+    showLoadingScreen(status);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    attempts++;
+  }
+
+  hideLoadingScreen();
+  return false;
+}
+
 function pad2(n) { return String(n).padStart(2, "0"); }
 
 function formatHMS(ms) {
@@ -368,6 +516,14 @@ function wirePeriodTabs() {
 }
 
 async function loadDashboard() {
+  // Check if AI is still processing
+  const status = await checkProcessingStatus();
+
+  if (status && status.isProcessing) {
+    console.log('[Analytics] Session still processing, waiting for completion...');
+    await waitForProcessing();
+  }
+
   const res = await new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "GET_DASHBOARD" }, (r) => resolve(r));
   });

@@ -70,7 +70,33 @@ async function refreshFromBackground() {
     return;
   }
   render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
+
+  // Check if AI is still processing and disable Analytics button if so
+  await updateAnalyticsButton();
 }
+
+async function updateAnalyticsButton() {
+  const statusRes = await send("GET_PROCESSING_STATUS");
+
+  if (statusRes && statusRes.ok && statusRes.status && statusRes.status.isProcessing) {
+    // Disable analytics button while processing
+    analyticsBtn.disabled = true;
+    analyticsBtn.style.opacity = '0.5';
+    analyticsBtn.style.cursor = 'not-allowed';
+    analyticsBtn.title = 'Please wait, analyzing session...';
+  } else {
+    // Enable analytics button
+    analyticsBtn.disabled = false;
+    analyticsBtn.style.opacity = '1';
+    analyticsBtn.style.cursor = 'pointer';
+    analyticsBtn.title = 'View your session dashboard';
+
+    // Stop checking once processing is done
+    stopProcessingCheck();
+  }
+}
+
+let processingCheckInterval = null;
 
 function startUiTicking() {
   if (uiInterval) return;
@@ -81,6 +107,17 @@ function stopUiTicking() {
   if (!uiInterval) return;
   clearInterval(uiInterval);
   uiInterval = null;
+}
+
+function startProcessingCheck() {
+  if (processingCheckInterval) return;
+  processingCheckInterval = setInterval(updateAnalyticsButton, 1000); // Check every second
+}
+
+function stopProcessingCheck() {
+  if (!processingCheckInterval) return;
+  clearInterval(processingCheckInterval);
+  processingCheckInterval = null;
 }
 
 toggleBtn.addEventListener("click", async () => {
@@ -95,6 +132,10 @@ toggleBtn.addEventListener("click", async () => {
     if (!res || !res.ok) return showError(res?.error || "Failed to stop");
     render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
     stopUiTicking();
+
+    // Start checking processing status (will disable Analytics button)
+    startProcessingCheck();
+    await updateAnalyticsButton(); // Immediate check
 
     // Open reflection page immediately (if session was longer than 2 minutes)
     // The reflection page will show loading screen while AI analyzes the session
