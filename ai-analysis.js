@@ -942,24 +942,55 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
       "Neutral": (analysis.emotions["Neutral"] || 0) + (analysis.emotions["Mixed"] || 0) * 0.5
     };
 
-    // Convert to milliseconds
+    // CRITICAL FIX: Normalize emotions to ensure they sum to 1.0
+    // The AI sometimes omits categories with 0% values, causing percentages to not sum to 100%
+    const topicsSum = Object.values(topics).reduce((sum, v) => sum + v, 0);
+    const emotionsSum = Object.values(emotions).reduce((sum, v) => sum + v, 0);
+
+    // Normalize topics if needed
+    const normalizedTopics = {};
+    if (topicsSum > 0) {
+      for (const [k, v] of Object.entries(topics)) {
+        normalizedTopics[k] = v / topicsSum;
+      }
+    } else {
+      // Equal distribution if all 0
+      for (const k of Object.keys(topics)) {
+        normalizedTopics[k] = 0.25;
+      }
+    }
+
+    // Normalize emotions if needed
+    const normalizedEmotions = {};
+    if (emotionsSum > 0) {
+      for (const [k, v] of Object.entries(emotions)) {
+        normalizedEmotions[k] = v / emotionsSum;
+      }
+    } else {
+      // Equal distribution if all 0
+      for (const k of Object.keys(emotions)) {
+        normalizedEmotions[k] = 0.33;
+      }
+    }
+
+    // Convert to milliseconds using normalized percentages
     const topicMs = {};
     const emotionMs = {};
 
-    for (const [k, v] of Object.entries(topics)) {
+    for (const [k, v] of Object.entries(normalizedTopics)) {
       topicMs[k] = Math.round(v * durationMs);
     }
-    for (const [k, v] of Object.entries(emotions)) {
+    for (const [k, v] of Object.entries(normalizedEmotions)) {
       emotionMs[k] = Math.round(v * durationMs);
     }
 
-    // Generate per-topic emotions (simplified)
+    // Generate per-topic emotions (simplified) using normalized emotions
     const perTopicEmotions = {};
     for (const topic of Object.keys(topicMs)) {
       perTopicEmotions[topic] = {
-        "Heavy": Math.round(topicMs[topic] * emotions.Heavy),
-        "Light": Math.round(topicMs[topic] * emotions.Light),
-        "Neutral": Math.round(topicMs[topic] * emotions.Neutral)
+        "Heavy": Math.round(topicMs[topic] * normalizedEmotions.Heavy),
+        "Light": Math.round(topicMs[topic] * normalizedEmotions.Light),
+        "Neutral": Math.round(topicMs[topic] * normalizedEmotions.Neutral)
       };
     }
 
