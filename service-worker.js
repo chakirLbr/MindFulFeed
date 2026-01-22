@@ -301,7 +301,7 @@ function generateSessionBreakdownDemo(durationMs, endedAtMs) {
   const seed = (endedAtMs / 1000) | 0 ^ (durationMs | 0);
   const rnd = mulberry32(seed);
 
-  const topics = ["Education", "Fun", "Sport", "News"];
+  const topics = ["Educational", "Entertainment", "Social", "Informative"];
   const topicW = normalizeWeights([rnd() + 0.2, rnd() + 0.2, rnd() + 0.2, rnd() + 0.2]);
   const topicMs = msFromFractions(durationMs, topicW, topics);
 
@@ -309,8 +309,8 @@ function generateSessionBreakdownDemo(durationMs, endedAtMs) {
   const perTopicEmotions = {};
 
   for (const t of topics) {
-    // keep neutral plausible; heavy sometimes higher for news
-    const biasHeavy = t === "News" ? 0.35 : 0.25;
+    // keep neutral plausible; heavy sometimes higher for informative content
+    const biasHeavy = t === "Informative" ? 0.35 : 0.25;
     const w = normalizeWeights([
       rnd() + biasHeavy,
       rnd() + 0.3,
@@ -604,13 +604,13 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
     daily[dayKey] = {
       totalMs: 0,
       sessionCount: 0,
-      topics: { Education: 0, Fun: 0, Sport: 0, News: 0 },
+      topics: { Educational: 0, Entertainment: 0, Social: 0, Informative: 0 },
       emotions: { Heavy: 0, Light: 0, Neutral: 0 },
       perTopicEmotions: {
-        Education: { Heavy: 0, Light: 0, Neutral: 0 },
-        Fun: { Heavy: 0, Light: 0, Neutral: 0 },
-        Sport: { Heavy: 0, Light: 0, Neutral: 0 },
-        News: { Heavy: 0, Light: 0, Neutral: 0 }
+        Educational: { Heavy: 0, Light: 0, Neutral: 0 },
+        Entertainment: { Heavy: 0, Light: 0, Neutral: 0 },
+        Social: { Heavy: 0, Light: 0, Neutral: 0 },
+        Informative: { Heavy: 0, Light: 0, Neutral: 0 }
       },
       engagement: { Mindful: 0, Mindless: 0, Engaging: 0 }
     };

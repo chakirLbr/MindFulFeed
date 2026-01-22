@@ -15,9 +15,11 @@
 
 ### 2. **AI-Powered Content Analysis**
 - 📊 **Multimodal Analysis** - Analyzes both text captions and visual content
-- 🎯 **Smart Categorization** - 8 content categories based on Uses & Gratifications Theory:
-  - Education, Entertainment, Social Connection, News & Current Events
-  - Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts
+- 🎯 **Smart Categorization** - 4 main content categories based on Uses & Gratifications Theory:
+  - **Educational**: Learning, tutorials, informative content
+  - **Entertainment**: Fun, humor, creative arts, shopping
+  - **Social**: Friends, family, relationships, sports, health & wellness
+  - **Informative**: News, politics, current affairs, inspiration
 - 💭 **Emotion Detection** - Tracks emotional tone (Positive, Negative, Neutral, Mixed)
 - 🧠 **Engagement Quality** - Measures mindful vs. mindless consumption patterns
 

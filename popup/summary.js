@@ -1,8 +1,8 @@
 const TOPICS = [
-  { key: "Education", colorVar: "--c-edu" },
-  { key: "Fun", colorVar: "--c-fun" },
-  { key: "Sport", colorVar: "--c-sport" },
-  { key: "News", colorVar: "--c-news" }
+  { key: "Educational", colorVar: "--c-educational" },
+  { key: "Entertainment", colorVar: "--c-entertainment" },
+  { key: "Social", colorVar: "--c-social" },
+  { key: "Informative", colorVar: "--c-informative" }
 ];
 
 const EMOTIONS = [
@@ -537,13 +537,13 @@ async function loadDashboard() {
   const todayKey = isoDate(new Date());
   const today = daily[todayKey] || {
     totalMs: 0,
-    topics: { Education: 0, Fun: 0, Sport: 0, News: 0 },
+    topics: { Educational: 0, Entertainment: 0, Social: 0, Informative: 0 },
     emotions: { Heavy: 0, Light: 0, Neutral: 0 },
     perTopicEmotions: {
-      Education: { Heavy: 0, Light: 0, Neutral: 0 },
-      Fun: { Heavy: 0, Light: 0, Neutral: 0 },
-      Sport: { Heavy: 0, Light: 0, Neutral: 0 },
-      News: { Heavy: 0, Light: 0, Neutral: 0 }
+      Educational: { Heavy: 0, Light: 0, Neutral: 0 },
+      Entertainment: { Heavy: 0, Light: 0, Neutral: 0 },
+      Social: { Heavy: 0, Light: 0, Neutral: 0 },
+      Informative: { Heavy: 0, Light: 0, Neutral: 0 }
     }
   };
 
@@ -553,10 +553,10 @@ async function loadDashboard() {
 
   // If today has no analytics yet, fake a simple even split so UI is not empty.
   const topicsMs = (today.totalMs > 0) ? today.topics : {
-    Education: Math.round(totalMs * 0.25),
-    Fun: Math.round(totalMs * 0.25),
-    Sport: Math.round(totalMs * 0.25),
-    News: totalMs - 3 * Math.round(totalMs * 0.25)
+    Educational: Math.round(totalMs * 0.25),
+    Entertainment: Math.round(totalMs * 0.25),
+    Social: Math.round(totalMs * 0.25),
+    Informative: totalMs - 3 * Math.round(totalMs * 0.25)
   };
 
   const emotionsMs = (today.totalMs > 0) ? today.emotions : {
@@ -695,46 +695,46 @@ function analyzePostDebug(caption) {
 
   const lowerCaption = caption.toLowerCase();
 
-  // Topic detection (same logic as ai-analysis.js) - CHECK SPORT PATTERNS FIRST
+  // Topic detection (same logic as ai-analysis.js) - CHECK SOCIAL PATTERNS FIRST
   let topic = 'Unknown';
 
   // Pattern 1: "Team1 vs Team2" format (e.g., "Morocco vs Nigeria")
   if (/\b\w+\s+(vs\.?|versus)\s+\w+/i.test(caption)) {
-    topic = 'Sport';
+    topic = 'Social';
   }
   // Pattern 2: Sport hashtags (AFCON, FIFA, etc.)
   else if (/#(AFCON|FIFA|UEFA|NBA|NFL|WorldCup|Olympics|ChampionsLeague|PremierLeague)/i.test(caption)) {
-    topic = 'Sport';
+    topic = 'Social';
   }
   // Pattern 3: Country flags with vs (🇲🇦 vs 🇳🇬)
   else if (/[\u{1F1E6}-\u{1F1FF}].*\b(vs\.?|versus)\b.*[\u{1F1E6}-\u{1F1FF}]/iu.test(caption)) {
-    topic = 'Sport';
+    topic = 'Social';
   }
-  // Pattern 4: Sport keywords (enhanced with tournaments, emojis)
+  // Pattern 4: Social/Sport keywords (enhanced with tournaments, emojis)
   else if (/\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running|cup|tournament|AFCON|FIFA|UEFA|NBA|NFL|MLB|NHL|olympics|premier league|champions league|world cup|super bowl|grand slam|⚽|🏀|🏈|⛹️|🏆|🥇)\b/i.test(caption)) {
-    topic = 'Sport';
+    topic = 'Social';
   }
   // Then check other categories
   else if (/\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson|university|college|school)\b/i.test(caption)) {
-    topic = 'Education';
+    topic = 'Educational';
   } else if (/\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment|movie|film|series|show|watch)\b/i.test(caption)) {
     topic = 'Entertainment';
   } else if (/\b(friend|family|love|together|relationship|community|connection|meet|gathering|celebration|wedding|birthday)\b/i.test(caption)) {
-    topic = 'Social Connection';
+    topic = 'Social';
   } else if (/\b(news|breaking|update|report|announced|today|latest|current|politics|election|government|world)\b/i.test(caption)) {
-    topic = 'News & Current Events';
+    topic = 'Informative';
   } else if (/\b(inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation|hustle|grind|mindset)\b/i.test(caption)) {
-    topic = 'Inspiration';
+    topic = 'Informative';
   } else if (/\b(buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style|outfit|clothing|wear)\b/i.test(caption)) {
-    topic = 'Shopping & Commerce';
+    topic = 'Entertainment';
   } else if (/\b(health|fitness|workout|yoga|meditation|wellbeing|mental health|self care|nutrition|exercise|gym|diet|wellness)\b/i.test(caption)) {
-    topic = 'Health & Wellness';
+    topic = 'Social';
   } else if (/\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty)\b/i.test(caption)) {
-    topic = 'Creative Arts';
+    topic = 'Entertainment';
   } else if (caption.length > 10) {
     topic = 'Entertainment';
   } else {
-    topic = 'Social Connection';
+    topic = 'Social';
   }
 
   // Emotion detection

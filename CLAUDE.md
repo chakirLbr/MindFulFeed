@@ -170,7 +170,7 @@ PUSH_MS = 2000                // Update frequency to background (2s)
 
 **Visualizations**:
 1. **Topic Donut Chart**: Shows time distribution across categories
-   - Education, Fun, Sport, News
+   - Educational, Entertainment, Social, Informative
    - Custom CSS variable colors
    - SVG-based rendering
 
@@ -330,13 +330,13 @@ summary.js:
 {
   "YYYY-MM-DD": {
     totalMs: number,
-    topics: { Education: number, Fun: number, Sport: number, News: number },
+    topics: { Educational: number, Entertainment: number, Social: number, Informative: number },
     emotions: { Heavy: number, Light: number, Neutral: number },
     perTopicEmotions: {
-      Education: { Heavy: number, Light: number, Neutral: number },
-      Fun: { ... },
-      Sport: { ... },
-      News: { ... }
+      Educational: { Heavy: number, Light: number, Neutral: number },
+      Entertainment: { ... },
+      Social: { ... },
+      Informative: { ... }
     }
   },
   // ... more dates
@@ -401,7 +401,7 @@ summary.js:
 ### Modifying Topics or Emotions
 
 **Current Categories** (hardcoded):
-- Topics: Education, Fun, Sport, News
+- Topics: Educational, Entertainment, Social, Informative
 - Emotions: Heavy, Light, Neutral
 
 **To Change**:
@@ -414,7 +414,7 @@ summary.js:
 2. Update breakdown logic in `service-worker.js`:
    ```javascript
    function generateSessionBreakdown() {
-     const topics = ["Education", "Fun", "Sport", "News"];
+     const topics = ["Educational", "Entertainment", "Social", "Informative"];
      const emotions = ["Heavy", "Light", "Neutral"];
      // ...
    }
@@ -424,8 +424,10 @@ summary.js:
 
 4. Update CSS color variables in `summary.css`:
    ```css
-   --c-edu: /* color */
-   --c-fun: /* color */
+   --c-educational: /* color */
+   --c-entertainment: /* color */
+   --c-social: /* color */
+   --c-informative: /* color */
    --e-heavy: /* color */
    ```
 
@@ -555,7 +557,7 @@ summary.js:
 function generateSessionBreakdown(durationMs, endedAtMs) {
   // Uses mulberry32 PRNG with seed from date + duration
   // Generates plausible distributions for:
-  // - Topics (Education, Fun, Sport, News)
+  // - Topics (Educational, Entertainment, Social, Informative)
   // - Emotions (Heavy, Light, Neutral)
   // - Per-topic emotion breakdown
 }

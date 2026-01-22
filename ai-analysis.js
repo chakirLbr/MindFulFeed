@@ -7,15 +7,15 @@ const AI_ANALYSIS = (() => {
   const CONTENT_DIMENSIONS = {
     topics: {
       // Based on uses and gratifications theory
-      "Education": "Educational, learning, informative content",
+      "Educational": "Educational, learning, informative content",
       "Entertainment": "Fun, humorous, entertaining content",
-      "Social Connection": "Friends, family, relationships, community",
-      "News & Current Events": "News, politics, current affairs",
-      "Inspiration": "Motivational, aspirational, success stories",
-      "Shopping & Commerce": "Products, shopping, commercial content",
-      "Health & Wellness": "Fitness, mental health, self-care",
-      "Creative Arts": "Art, music, creativity, cultural content",
-      "Sport": "Sports, athletic activities, games, competitions"
+      "Social": "Friends, family, relationships, community, sports, health",
+      "Informative": "News, politics, current affairs, inspiration, shopping",
+      "Creative Arts": "Art, music, creativity, cultural content (internal use only)",
+      "Health & Wellness": "Fitness, mental health, self-care (internal use only)",
+      "News & Current Events": "News, politics, current affairs (internal use only)",
+      "Inspiration": "Motivational, aspirational content (internal use only)",
+      "Shopping & Commerce": "Products, shopping content (internal use only)"
     },
 
     emotions: {
@@ -213,7 +213,7 @@ ${captions}
 
 Provide a JSON response with:
 1. For each post (by number), classify:
-   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+   - topic: Educational, Entertainment, Social, or Informative
    - emotion: Positive, Negative, Neutral, or Mixed
 
 2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
@@ -221,9 +221,9 @@ ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', 
 
 RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
-  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
   "overall": {
-    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
 }
@@ -395,7 +395,7 @@ ${postsText}
 
 Provide a JSON response with:
 1. For each post (by number), classify:
-   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+   - topic: Educational, Entertainment, Social, or Informative
    - emotion: Positive, Negative, Neutral, or Mixed
 
 2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
@@ -403,9 +403,9 @@ ${posts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
 RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
-  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
   "overall": {
-    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
 }
@@ -489,7 +489,7 @@ Do NOT add explanations. Return ONLY the JSON object.`
             text: `Analyze these ${topPosts.length} Instagram posts and categorize them based on BOTH images AND captions:
 
 Categorize each post:
-- topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+- topic: Educational, Entertainment, Social, or Informative
 - emotion: Positive, Negative, Neutral, or Mixed
 
 Then provide overall time distribution (as percentages) weighted by these dwell times:
@@ -497,9 +497,9 @@ ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', 
 
 RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
-  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
   "overall": {
-    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
 }
@@ -563,7 +563,7 @@ ${captions}
 
 Provide a JSON response with:
 1. For each post (by number), classify:
-   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+   - topic: Educational, Entertainment, Social, or Informative
    - emotion: Positive, Negative, Neutral, or Mixed
 
 2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
@@ -571,9 +571,9 @@ ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', 
 
 RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
-  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
   "overall": {
-    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
 }`
@@ -701,32 +701,27 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
   function classifyTopic(caption) {
     // Enhanced patterns with tournament names, sport emojis, and vs patterns
     const patterns = {
-      "Sport": /\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running|cup|tournament|AFCON|FIFA|UEFA|NBA|NFL|MLB|NHL|olympics|premier league|champions league|world cup|super bowl|grand slam|vs\.?|versus|⚽|🏀|🏈|⛹️|🏆|🥇)\b/i,
-      "Education": /\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson|university|college|school)\b/i,
-      "Entertainment": /\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment|movie|film|series|show|watch)\b/i,
-      "Social Connection": /\b(friend|family|love|together|relationship|community|connection|meet|gathering|celebration|wedding|birthday)\b/i,
-      "News & Current Events": /\b(news|breaking|update|report|announced|today|latest|current|politics|election|government|world)\b/i,
-      "Inspiration": /\b(inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation|hustle|grind|mindset)\b/i,
-      "Shopping & Commerce": /\b(buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style|outfit|clothing|wear)\b/i,
-      "Health & Wellness": /\b(health|fitness|workout|yoga|meditation|wellbeing|mental health|self care|nutrition|exercise|gym|training|diet|wellness)\b/i,
-      "Creative Arts": /\b(art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty)\b/i
+      "Social": /\b(sport|sports|football|soccer|basketball|tennis|game|match|player|team|score|goal|win|championship|league|athlete|fitness|training|workout|exercise|gym|run|running|cup|tournament|AFCON|FIFA|UEFA|NBA|NFL|MLB|NHL|olympics|premier league|champions league|world cup|super bowl|grand slam|vs\.?|versus|friend|family|love|together|relationship|community|connection|meet|gathering|celebration|wedding|birthday|health|wellness|yoga|meditation|wellbeing|mental health|self care|⚽|🏀|🏈|⛹️|🏆|🥇)\b/i,
+      "Educational": /\b(learn|study|course|tutorial|how to|guide|education|knowledge|skill|teach|training|lesson|university|college|school)\b/i,
+      "Entertainment": /\b(fun|funny|lol|haha|meme|comedy|joke|laugh|hilarious|entertainment|movie|film|series|show|watch|art|music|creative|paint|draw|design|photo|photography|artist|museum|culture|aesthetic|beauty|buy|shop|sale|discount|product|brand|store|purchase|deal|fashion|style|outfit|clothing|wear)\b/i,
+      "Informative": /\b(news|breaking|update|report|announced|today|latest|current|politics|election|government|world|inspire|motivate|success|achieve|goal|dream|aspire|believe|overcome|transformation|hustle|grind|mindset)\b/i
     };
 
-    // Check Sport FIRST for highest priority (most specific patterns)
+    // Check Social FIRST for highest priority (most specific patterns)
 
     // Pattern 1: "Team1 vs Team2" or "Country1 vs Country2"
     if (/\b\w+\s+(vs\.?|versus)\s+\w+/i.test(caption)) {
-      return "Sport";
+      return "Social";
     }
 
     // Pattern 2: Sport hashtags
     if (/#(AFCON|FIFA|UEFA|NBA|NFL|WorldCup|Olympics|ChampionsLeague|PremierLeague)/i.test(caption)) {
-      return "Sport";
+      return "Social";
     }
 
     // Pattern 3: Country flags with vs (🇲🇦 vs 🇳🇬)
     if (/[\u{1F1E6}-\u{1F1FF}].*\b(vs\.?|versus)\b.*[\u{1F1E6}-\u{1F1FF}]/iu.test(caption)) {
-      return "Sport";
+      return "Social";
     }
 
     // Check all patterns with keyword matching
@@ -742,7 +737,7 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
     }
 
     // Default to Entertainment if no clear match and caption exists
-    return bestMatch || (caption.length > 10 ? "Entertainment" : "Social Connection");
+    return bestMatch || (caption.length > 10 ? "Entertainment" : "Social");
   }
 
   /**
@@ -928,12 +923,12 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
   function toLegacyFormat(analysis) {
     const durationMs = analysis.totalDwellMs;
 
-    // Map new 9 categories to old 4 categories for dashboard compatibility
+    // Map internal categories to the 4 main display categories
     const topics = {
-      "Education": (analysis.topics["Education"] || 0),
-      "Fun": (analysis.topics["Entertainment"] || 0) + (analysis.topics["Creative Arts"] || 0) + (analysis.topics["Social Connection"] || 0) * 0.5,
-      "Sport": (analysis.topics["Sport"] || 0) + (analysis.topics["Health & Wellness"] || 0) * 0.5,
-      "News": (analysis.topics["News & Current Events"] || 0) + (analysis.topics["Inspiration"] || 0) + (analysis.topics["Shopping & Commerce"] || 0) * 0.3
+      "Educational": (analysis.topics["Educational"] || 0),
+      "Entertainment": (analysis.topics["Entertainment"] || 0) + (analysis.topics["Creative Arts"] || 0) + (analysis.topics["Shopping & Commerce"] || 0) * 0.7,
+      "Social": (analysis.topics["Social"] || 0) + (analysis.topics["Health & Wellness"] || 0),
+      "Informative": (analysis.topics["Informative"] || 0) + (analysis.topics["News & Current Events"] || 0) + (analysis.topics["Inspiration"] || 0) + (analysis.topics["Shopping & Commerce"] || 0) * 0.3
     };
 
     const emotions = {

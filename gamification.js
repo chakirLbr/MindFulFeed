@@ -283,7 +283,7 @@ const GAMIFICATION = (() => {
 
     // Content quality stats (simplified - would need full analysis data)
     const educationalRatio = allDays.reduce((sum, day) => {
-      return sum + ((day.topics?.Education || 0) / (day.totalMs || 1));
+      return sum + ((day.topics?.Educational || 0) / (day.totalMs || 1));
     }, 0) / Math.max(allDays.length, 1);
 
     // Goal streak (would need goal tracking data)

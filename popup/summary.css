@@ -10,10 +10,10 @@
   --shadow: 0 10px 30px rgba(36,49,58,0.12);
 
   /* Topic colors (match your screenshot vibe) */
-  --c-fun: #ff3b30;       /* red */
-  --c-news: #2f6bff;      /* blue */
-  --c-sport: #ffb020;     /* orange */
-  --c-edu: #35c759;       /* green */
+  --c-entertainment: #ff3b30;       /* red */
+  --c-informative: #2f6bff;      /* blue */
+  --c-social: #ffb020;     /* orange */
+  --c-educational: #35c759;       /* green */
 
   /* Emotion colors */
   --e-heavy:#ff3b30;      /* red */
