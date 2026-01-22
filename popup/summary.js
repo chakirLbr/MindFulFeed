@@ -885,9 +885,144 @@ function renderTodaysSessions(sessionHistory) {
       </div>
     `;
 
+    // Add click handler to open modal
+    sessionEl.addEventListener('click', () => openSessionModal(session));
+
     container.appendChild(sessionEl);
   });
 }
+
+// Session Modal Functions
+function openSessionModal(session) {
+  const modal = document.getElementById('sessionModal');
+  if (!modal) return;
+
+  // Update modal header
+  const topic = getDominantKey(session.topics);
+  const emotion = getDominantKey(session.emotions);
+  const topicColor = getTopicColor(topic);
+
+  const modalTitle = document.getElementById('modalTitle');
+  const modalSubtitle = document.getElementById('modalSubtitle');
+
+  modalTitle.textContent = `${getTopicIcon(topic)} ${getTopicDisplayName(topic) || 'Session'} Session`;
+  modalTitle.style.color = topicColor;
+
+  const sessionDate = new Date(session.endedAt).toLocaleString();
+  const postCount = session.raw?.posts?.length || 0;
+
+  modalSubtitle.innerHTML = `
+    <span><strong>Time:</strong> ${sessionDate}</span>
+    <span><strong>Duration:</strong> ${formatDuration(session.durationMs)}</span>
+    <span><strong>Posts:</strong> ${postCount}</span>
+    <span><strong>Platform:</strong> ${session.platform === 'youtube' ? 'YouTube' : 'Instagram'}</span>
+  `;
+
+  // Render posts
+  renderSessionPosts(session);
+
+  // Show modal
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSessionModal() {
+  const modal = document.getElementById('sessionModal');
+  if (!modal) return;
+
+  modal.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function renderSessionPosts(session) {
+  const postsGrid = document.getElementById('postsGrid');
+  if (!postsGrid) return;
+
+  const posts = session.raw?.posts || [];
+  const perPostAI = session.fullAnalysis?.perPostAnalysis || [];
+  const hasAIResults = perPostAI.length > 0;
+
+  if (posts.length === 0) {
+    postsGrid.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 20px;">No posts tracked in this session.</p>';
+    return;
+  }
+
+  postsGrid.innerHTML = '';
+
+  posts.forEach((post, index) => {
+    // Get AI analysis for this post
+    const postAnalysis = hasAIResults && perPostAI[index]
+      ? perPostAI[index]
+      : analyzePostDebug(post.caption);
+
+    const postCard = document.createElement('div');
+    postCard.className = 'postCard';
+
+    const dwellSeconds = Math.round(post.dwellMs / 1000);
+    const dwellText = dwellSeconds < 60
+      ? `${dwellSeconds}s`
+      : `${Math.floor(dwellSeconds / 60)}m ${dwellSeconds % 60}s`;
+
+    // Image section
+    const imageHtml = post.imageUrl
+      ? `<img src="${post.imageUrl}" alt="Post ${index + 1}" />`
+      : '📷';
+
+    // Topic and emotion tags
+    const topic = postAnalysis.topic || 'Unknown';
+    const emotion = postAnalysis.emotion || 'Neutral';
+    const engagement = postAnalysis.engagement || '';
+
+    const topicClass = topic.toLowerCase();
+    const topicColor = getTopicColor(topic);
+
+    postCard.innerHTML = `
+      <div class="postImage">
+        ${imageHtml}
+      </div>
+      <div class="postContent">
+        <div class="postHeader">
+          <span class="postNumber">Post #${index + 1}</span>
+          <span class="postDwell">⏱ ${dwellText}</span>
+        </div>
+        <div class="postCaption">${post.caption || 'No caption'}</div>
+        <div class="postTags">
+          <span class="postTag topic-${topicClass}" style="color: ${topicColor}">
+            ${getTopicIcon(topic)} ${topic}
+          </span>
+          ${emotion !== 'Unknown' ? `<span class="postTag emotion">${emotion}</span>` : ''}
+          ${engagement ? `<span class="postTag">${engagement}</span>` : ''}
+        </div>
+      </div>
+    `;
+
+    // Make post card clickable to open Instagram post
+    if (post.href) {
+      postCard.style.cursor = 'pointer';
+      postCard.addEventListener('click', () => {
+        window.open(post.href, '_blank');
+      });
+    }
+
+    postsGrid.appendChild(postCard);
+  });
+}
+
+// Modal close handlers
+document.getElementById('modalClose')?.addEventListener('click', closeSessionModal);
+
+document.getElementById('sessionModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'sessionModal') {
+    closeSessionModal();
+  }
+});
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeSessionModal();
+  }
+});
 
 document.getElementById("refreshBtn")?.addEventListener("click", loadDashboard);
 
