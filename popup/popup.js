@@ -96,12 +96,11 @@ toggleBtn.addEventListener("click", async () => {
     render({ isTracking: res.state.isTracking, elapsedMs: res.elapsedMs });
     stopUiTicking();
 
-    // Optionally open reflection page (if session was longer than 2 minutes)
+    // Open reflection page immediately (if session was longer than 2 minutes)
+    // The reflection page will show loading screen while AI analyzes the session
     if (res.elapsedMs > 120000) {
-      setTimeout(() => {
-        const reflectionUrl = chrome.runtime.getURL("popup/reflection.html");
-        window.open(reflectionUrl, "_blank");
-      }, 500);
+      const reflectionUrl = chrome.runtime.getURL("popup/reflection.html");
+      window.open(reflectionUrl, "_blank");
     }
   } else {
     const res = await send("START");

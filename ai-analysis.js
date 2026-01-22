@@ -140,7 +140,9 @@ const AI_ANALYSIS = (() => {
    */
   async function analyzeWithLocal(posts, endpoint) {
     try {
-      console.log('[AI Analysis] Using LM Studio local AI at:', endpoint);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AI Analysis] 🤖 Starting LM Studio Analysis');
+      console.log('[AI Analysis] 🌐 Endpoint:', endpoint);
 
       // Prepare analysis data - analyze ALL posts seen in session
       // Lower cap for vision models to prevent VRAM exhaustion
@@ -148,14 +150,16 @@ const AI_ANALYSIS = (() => {
       const MAX_POSTS = hasAnyImages ? 10 : 50; // 10 for vision (VRAM limit), 50 for text-only
       const topPosts = posts.slice(0, Math.min(posts.length, MAX_POSTS));
 
-      console.log(`[AI Analysis] Analyzing ${topPosts.length} posts out of ${posts.length} total posts seen`);
+      console.log(`[AI Analysis] 📊 Analyzing ${topPosts.length} posts out of ${posts.length} total posts seen`);
       if (posts.length > MAX_POSTS) {
-        console.log(`[AI Analysis] Note: Capped at ${MAX_POSTS} posts to prevent ${hasAnyImages ? 'VRAM exhaustion' : 'API limits'}. Analyzing the first ${MAX_POSTS} posts.`);
+        console.log(`[AI Analysis] ⚠️  Capped at ${MAX_POSTS} posts to prevent ${hasAnyImages ? 'VRAM exhaustion' : 'API limits'}`);
       }
 
       // Check if we have images (vision model support)
       const hasImages = topPosts.some(p => p.imageBase64);
-      console.log('[AI Analysis] Vision model mode:', hasImages ? 'YES - Two-Stage Analysis (Vision → Text)' : 'NO - text only');
+      const imagesCount = topPosts.filter(p => p.imageBase64).length;
+      console.log('[AI Analysis] 🖼️  Images found:', imagesCount);
+      console.log('[AI Analysis] 📝 Mode:', hasImages ? 'Two-Stage Analysis (Vision → Text)' : 'Text-only analysis');
 
       // TWO-STAGE APPROACH for local models with images
       if (hasImages) {
@@ -166,8 +170,13 @@ const AI_ANALYSIS = (() => {
         const imageDescriptions = await describeImagesWithVision(topPosts, endpoint);
 
         // === STAGE 2: Text Model - Categorize Based on Descriptions + Captions ===
-        console.log('[AI Analysis] Stage 2: Using text model to categorize based on descriptions + captions...');
+        console.log('[AI Analysis] 📝 Stage 2: Using text model to categorize based on descriptions + captions...');
         const aiResult = await categorizeWithTextModel(topPosts, imageDescriptions, endpoint);
+
+        console.log('[AI Analysis] ✅ Two-Stage Analysis complete!');
+        console.log('[AI Analysis] 📈 Topics detected:', Object.keys(aiResult.overall.topics).filter(t => aiResult.overall.topics[t] > 0.05).join(', '));
+        console.log('[AI Analysis] 😊 Emotions detected:', Object.keys(aiResult.overall.emotions).filter(e => aiResult.overall.emotions[e] > 0.05).join(', '));
+        console.log('═══════════════════════════════════════════════════════════');
 
         // Convert to our format
         return {
@@ -284,7 +293,7 @@ Do NOT add explanations. Return ONLY the JSON object.`
    */
   async function describeImagesWithVision(posts, endpoint) {
     const postsWithImages = posts.filter(p => p.imageBase64);
-    console.log(`[AI Analysis - Stage 1] Describing ${postsWithImages.length} images...`);
+    console.log(`[AI Analysis - Stage 1] 🖼️  Describing ${postsWithImages.length} images with vision model...`);
 
     const descriptions = [];
 
@@ -292,6 +301,7 @@ Do NOT add explanations. Return ONLY the JSON object.`
     for (let i = 0; i < postsWithImages.length; i++) {
       const post = postsWithImages[i];
       const postIndex = posts.indexOf(post);
+      console.log(`[AI Analysis - Stage 1] 🔍 Processing image ${i + 1}/${postsWithImages.length}...`);
 
       const messages = [
         {
@@ -447,23 +457,27 @@ Do NOT add explanations. Return ONLY the JSON object.`
    */
   async function analyzeWithAI(posts, apiKey, model = 'gpt-4o-mini') {
     try {
-      console.log('[AI Analysis] Using OpenAI direct API with model:', model);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('[AI Analysis] 🤖 Starting OpenAI Analysis');
+      console.log('[AI Analysis] 🎯 Model:', model);
 
       // Prepare analysis data - limit posts based on whether we have images
       const hasAnyImages = posts.some(p => p.imageBase64);
       const MAX_POSTS = hasAnyImages ? 15 : 30; // Lower limit for multimodal to manage costs
       const topPosts = posts.slice(0, Math.min(posts.length, MAX_POSTS));
 
-      console.log(`[AI Analysis] Analyzing ${topPosts.length} posts out of ${posts.length} total`);
+      console.log(`[AI Analysis] 📊 Analyzing ${topPosts.length} posts out of ${posts.length} total`);
       if (posts.length > MAX_POSTS) {
-        console.log(`[AI Analysis] Note: Capped at ${MAX_POSTS} posts for ${hasAnyImages ? 'multimodal' : 'text'} analysis`);
+        console.log(`[AI Analysis] ⚠️  Capped at ${MAX_POSTS} posts for ${hasAnyImages ? 'multimodal' : 'text'} analysis`);
       }
 
       // Check if model supports vision (GPT-4o family)
       const supportsVision = model.includes('gpt-4o') || model.includes('gpt-4-turbo');
       const hasImages = supportsVision && topPosts.some(p => p.imageBase64);
+      const imagesCount = hasImages ? topPosts.filter(p => p.imageBase64).length : 0;
 
-      console.log('[AI Analysis] Multimodal mode:', hasImages ? 'YES - Single-stage (images + captions)' : 'NO - text only');
+      console.log('[AI Analysis] 🖼️  Images found:', imagesCount);
+      console.log('[AI Analysis] 📝 Mode:', hasImages ? 'Single-Stage Multimodal (images + captions together)' : 'Text-only analysis');
 
       let messages;
 
@@ -598,7 +612,10 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
         throw new Error('No valid JSON found in OpenAI response');
       }
 
-      console.log('[AI Analysis] OpenAI response received:', aiResult);
+      console.log('[AI Analysis] ✅ OpenAI response received and parsed successfully');
+      console.log('[AI Analysis] 📈 Topics detected:', Object.keys(aiResult.overall.topics).filter(t => aiResult.overall.topics[t] > 0.05).join(', '));
+      console.log('[AI Analysis] 😊 Emotions detected:', Object.keys(aiResult.overall.emotions).filter(e => aiResult.overall.emotions[e] > 0.05).join(', '));
+      console.log('═══════════════════════════════════════════════════════════');
 
       // Convert to our format
       return {
@@ -618,7 +635,8 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
       };
 
     } catch (error) {
-      console.error('[AI Analysis] OpenAI API error, falling back to heuristics:', error);
+      console.error('[AI Analysis] ❌ OpenAI API error, falling back to heuristics:', error);
+      console.log('═══════════════════════════════════════════════════════════');
       return await analyzeWithHeuristics(posts);
     }
   }

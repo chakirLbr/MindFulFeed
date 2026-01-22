@@ -16,6 +16,7 @@ const SESSION_META_KEY = "mf_session_meta"; // { sessionId, tabId, acceptFinaliz
 const SESSION_COUNT_KEY = "mf_daily_session_count"; // Track session count per day
 const SESSION_HISTORY_KEY = "mf_session_history"; // Array of recent sessions (keep last 20)
 const INCREMENTAL_ANALYSIS_KEY = "mf_incremental_analysis"; // Store incremental analysis results
+const PROCESSING_STATUS_KEY = "mf_processing_status"; // Processing status for UI feedback
 
 const defaultState = {
   isTracking: false,
@@ -141,6 +142,19 @@ async function getIncrementalAnalysis() {
   });
 }
 
+async function getProcessingStatus() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([PROCESSING_STATUS_KEY], (r) => resolve(r[PROCESSING_STATUS_KEY] || null));
+  });
+}
+
+async function setProcessingStatus(status) {
+  console.log('[MindfulFeed] Processing status:', status);
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ [PROCESSING_STATUS_KEY]: status }, () => resolve());
+  });
+}
+
 async function setIncrementalAnalysis(data) {
   return new Promise((resolve) => {
     chrome.storage.local.set({ [INCREMENTAL_ANALYSIS_KEY]: data }, () => resolve());
@@ -185,6 +199,12 @@ function mergeAnalysisResults(result1, result2) {
     mergedEngagement[eng] = (result1.engagement[eng] || 0) * weight1 + (result2.engagement[eng] || 0) * weight2;
   }
 
+  // Merge per-post analysis arrays (IMPORTANT: preserve individual post AI results!)
+  const mergedPerPostAnalysis = [
+    ...(result1.perPostAnalysis || []),
+    ...(result2.perPostAnalysis || [])
+  ];
+
   return {
     topics: mergedTopics,
     emotions: mergedEmotions,
@@ -192,6 +212,7 @@ function mergeAnalysisResults(result1, result2) {
     totalDwellMs: combinedDwell,
     postsAnalyzed: (result1.postsAnalyzed || 0) + (result2.postsAnalyzed || 0),
     analysisMethod: 'incremental',
+    perPostAnalysis: mergedPerPostAnalysis, // Include individual post analyses
     insights: result1.insights || [] // Keep first insights for now
   };
 }
@@ -441,14 +462,70 @@ async function stop() {
     await signalContent("STOP", {});
   }
 
+  // Set processing status for UI feedback
+  await setProcessingStatus({
+    isProcessing: true,
+    step: 'Collecting final data...',
+    progress: 10,
+    startedAt: getNow()
+  });
+
+  // Process in background (non-blocking)
+  processSessionInBackground(meta, endedAt, durationMs).catch(err => {
+    console.error('[MindfulFeed] Background processing error:', err);
+    setProcessingStatus({
+      isProcessing: false,
+      error: err.message,
+      completedAt: getNow()
+    });
+  });
+
+  // Return immediately to unblock UI
+  return next;
+}
+
+// Background processing function
+async function processSessionInBackground(meta, endedAt, durationMs) {
+  console.log('[MindfulFeed] Starting background session processing...');
+
   // Give the content script a brief moment to send its final snapshot
   await new Promise((r) => setTimeout(r, 500));
 
+  // Update status
+  await setProcessingStatus({
+    isProcessing: true,
+    step: 'Reading session data...',
+    progress: 20,
+    startedAt: Date.now()
+  });
+
   // Read raw session snapshot (best-effort)
   const raw = await getRawSession();
+  const postCount = raw?.posts?.length || 0;
+
+  console.log(`[MindfulFeed] Analyzing ${postCount} posts...`);
+
+  // Update status
+  await setProcessingStatus({
+    isProcessing: true,
+    step: `Analyzing ${postCount} posts with AI...`,
+    progress: 30,
+    postCount,
+    startedAt: Date.now()
+  });
 
   // AI-powered analysis (with fallback)
   const breakdown = await generateSessionBreakdown(raw, durationMs, endedAt);
+
+  console.log('[MindfulFeed] AI analysis complete');
+
+  // Update status
+  await setProcessingStatus({
+    isProcessing: true,
+    step: 'Saving results...',
+    progress: 80,
+    startedAt: Date.now()
+  });
 
   // Get session count for nudges
   const dayKey = isoDate(new Date(endedAt));
@@ -517,6 +594,14 @@ async function stop() {
 
   await setDaily(daily);
 
+  // Update status
+  await setProcessingStatus({
+    isProcessing: true,
+    step: 'Checking achievements...',
+    progress: 90,
+    startedAt: Date.now()
+  });
+
   // Check for achievements and update gamification stats
   try {
     const reflections = await REFLECTION_SYSTEM.getReflections();
@@ -541,10 +626,17 @@ async function stop() {
 
   // Clear raw session snapshot after saving into last session
   await setRawSession(null);
-
   await setSessionMeta(null);
 
-  return next;
+  // Mark as complete
+  await setProcessingStatus({
+    isProcessing: false,
+    step: 'Complete!',
+    progress: 100,
+    completedAt: getNow()
+  });
+
+  console.log('[MindfulFeed] Background session processing complete');
 }
 
 async function reset() {
@@ -581,6 +673,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.type === "STOP") {
       const state = await stop();
       sendResponse({ ok: true, state, elapsedMs: state.elapsedMs });
+      return;
+    }
+
+    if (msg.type === "GET_PROCESSING_STATUS") {
+      const status = await getProcessingStatus();
+      sendResponse({ ok: true, status });
       return;
     }
 
