@@ -77,6 +77,57 @@ const AI_ANALYSIS = (() => {
   }
 
   /**
+   * Extract JSON from AI response that may contain additional text
+   * Handles responses like: "Here's the analysis: ```json {...} ```"
+   * or "The analysis shows: {...}"
+   * @param {string} content - AI response content
+   * @returns {Object|null} Parsed JSON object or null if not found
+   */
+  function extractJSON(content) {
+    // Try 1: Direct JSON parse (if response is pure JSON)
+    try {
+      return JSON.parse(content);
+    } catch (e) {
+      // Continue to other methods
+    }
+
+    // Try 2: Extract from markdown code blocks (```json ... ``` or ``` ... ```)
+    const codeBlockMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (codeBlockMatch) {
+      try {
+        return JSON.parse(codeBlockMatch[1].trim());
+      } catch (e) {
+        console.warn('[AI Analysis] Found code block but failed to parse JSON:', e);
+      }
+    }
+
+    // Try 3: Extract JSON object using regex (find { ... })
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (e) {
+        console.warn('[AI Analysis] Found JSON-like text but failed to parse:', e);
+      }
+    }
+
+    // Try 4: Look for "posts" and "overall" keys (specific to our format)
+    const customMatch = content.match(/"posts"\s*:\s*\[[\s\S]*?\]\s*,\s*"overall"\s*:\s*\{[\s\S]*?\}/);
+    if (customMatch) {
+      try {
+        // Wrap in braces if not already
+        const jsonStr = customMatch[0].startsWith('{') ? customMatch[0] : `{${customMatch[0]}}`;
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        console.warn('[AI Analysis] Found posts/overall structure but failed to parse:', e);
+      }
+    }
+
+    console.error('[AI Analysis] Could not extract valid JSON from response. Content preview:', content.substring(0, 200));
+    return null;
+  }
+
+  /**
    * AI-powered analysis using LM Studio (local AI models)
    * Note: Images are converted to base64 by the content script (foreground.js)
    * and passed in via post.imageBase64 field
@@ -108,7 +159,7 @@ const AI_ANALYSIS = (() => {
       // System message
       messages.push({
         role: 'system',
-        content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided. Respond ONLY with valid JSON.'
+        content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
       });
 
       // User message with multimodal content (images + text)
@@ -126,7 +177,7 @@ Categorize each post:
 Then provide overall time distribution (as percentages) weighted by these dwell times:
 ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-Format:
+RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
   "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
   "overall": {
@@ -134,6 +185,8 @@ Format:
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
 }
+
+Do NOT describe the images. Do NOT add explanations. Return ONLY the JSON.
 
 Here are the posts:`
           }
@@ -202,14 +255,16 @@ Provide a JSON response with:
 2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
 ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-Format:
+RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
   "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
   "overall": {
     "topics": {"Education": 0.15, "Sport": 0.25, ...},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
-}`
+}
+
+Do NOT add explanations. Return ONLY the JSON object.`
         });
       }
 
@@ -236,7 +291,13 @@ Format:
 
       const data = await response.json();
       const content = data.choices[0].message.content;
-      const aiResult = JSON.parse(content);
+
+      // Extract JSON from response (handles models that return text + JSON)
+      const aiResult = extractJSON(content);
+
+      if (!aiResult) {
+        throw new Error('No valid JSON found in LM Studio response');
+      }
 
       console.log('[AI Analysis] LM Studio response received:', aiResult);
 
@@ -302,7 +363,7 @@ Format:
       const messages = [
         {
           role: 'system',
-          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.'
+          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
         },
         {
           role: 'user',
@@ -331,7 +392,14 @@ Format:
       }
 
       const data = await response.json();
-      const aiResult = JSON.parse(data.choices[0].message.content);
+      const content = data.choices[0].message.content;
+
+      // Extract JSON from response (OpenAI usually returns clean JSON, but just in case)
+      const aiResult = extractJSON(content);
+
+      if (!aiResult) {
+        throw new Error('No valid JSON found in OpenAI response');
+      }
 
       console.log('[AI Analysis] OpenAI response received:', aiResult);
 
