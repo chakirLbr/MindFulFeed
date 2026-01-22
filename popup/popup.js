@@ -164,5 +164,14 @@ closeBtn.addEventListener("click", () => window.close());
   await refreshFromBackground();
   const res = await send("GET_STATE");
   if (!res || !res.ok) return;
-  if (res.state.isTracking) startUiTicking();
+  if (res.state.isTracking) {
+    startUiTicking();
+  } else {
+    // Check if processing is ongoing when popup opens while not tracking
+    const statusRes = await send("GET_PROCESSING_STATUS");
+    if (statusRes && statusRes.ok && statusRes.status && statusRes.status.isProcessing) {
+      // Start checking if processing is ongoing
+      startProcessingCheck();
+    }
+  }
 })();

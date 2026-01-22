@@ -334,7 +334,38 @@ async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
     const incrementalData = await getIncrementalAnalysis();
 
     if (incrementalData.results && incrementalData.analyzedPosts.length > 0) {
-      console.log(`[MindfulFeed] Using incremental analysis results (${incrementalData.analyzedPosts.length} posts)`);
+      const allPosts = raw?.posts || [];
+      console.log(`[MindfulFeed] Using incremental analysis results (${incrementalData.analyzedPosts.length} posts analyzed)`);
+
+      // Check if there are any posts that weren't analyzed incrementally
+      const analyzedHrefs = new Set(incrementalData.analyzedPosts.map(p => p.href));
+      const unanalyzedPosts = allPosts.filter(p => !analyzedHrefs.has(p.href));
+
+      if (unanalyzedPosts.length > 0) {
+        console.log(`[MindfulFeed] Found ${unanalyzedPosts.length} unanalyzed posts, analyzing now...`);
+
+        // Analyze the remaining posts
+        const remainingAnalysis = await AI_ANALYSIS.analyzePostsBatch(unanalyzedPosts);
+
+        // Merge with incremental results
+        const combinedResults = mergeAnalysisResults(incrementalData.results, remainingAnalysis);
+
+        console.log(`[MindfulFeed] Combined analysis complete: ${allPosts.length} total posts`);
+
+        // Convert to legacy format for compatibility
+        const breakdown = AI_ANALYSIS.toLegacyFormat(combinedResults);
+
+        // Add full analysis for insights
+        breakdown.fullAnalysis = combinedResults;
+
+        // Clear incremental data after using it
+        await clearIncrementalAnalysis();
+
+        return breakdown;
+      }
+
+      // All posts were analyzed incrementally
+      console.log(`[MindfulFeed] All posts were analyzed incrementally`);
 
       // Convert to legacy format for compatibility
       const breakdown = AI_ANALYSIS.toLegacyFormat(incrementalData.results);
@@ -478,6 +509,21 @@ async function stop() {
       error: err.message,
       completedAt: getNow()
     });
+  }).finally(() => {
+    // Ensure processing status is cleared even if something goes wrong
+    setTimeout(async () => {
+      const status = await getProcessingStatus();
+      if (status && status.isProcessing && (Date.now() - status.startedAt > 120000)) {
+        // If still showing as processing after 2 minutes, force clear
+        console.warn('[MindfulFeed] Forcing processing status clear after timeout');
+        await setProcessingStatus({
+          isProcessing: false,
+          step: 'Complete',
+          progress: 100,
+          completedAt: Date.now()
+        });
+      }
+    }, 120000); // 2 minute timeout
   });
 
   // Return immediately to unblock UI

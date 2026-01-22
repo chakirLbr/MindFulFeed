@@ -151,29 +151,41 @@ function hideLoadingScreen() {
 
 // Wait for processing to complete
 async function waitForProcessing() {
-  showLoadingScreen({ step: 'Starting analysis...', progress: 0 });
+  // First check - if already complete, don't show loading screen at all
+  const initialStatus = await checkProcessingStatus();
+
+  if (!initialStatus || !initialStatus.isProcessing) {
+    console.log('[Reflection] Processing already complete, no need to wait');
+    return true;
+  }
+
+  // Processing is ongoing, show loading screen
+  console.log('[Reflection] Processing in progress, showing loading screen...');
+  showLoadingScreen(initialStatus);
 
   let attempts = 0;
   const maxAttempts = 60; // 60 seconds max wait
 
   while (attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    attempts++;
+
     const status = await checkProcessingStatus();
 
     if (!status || !status.isProcessing) {
       // Processing complete!
+      console.log('[Reflection] Processing complete, hiding loading screen');
       hideLoadingScreen();
       return true;
     }
 
-    // Update loading screen
+    // Update loading screen with current progress
     showLoadingScreen(status);
-
-    // Wait 1 second before checking again
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    attempts++;
+    console.log(`[Reflection] Still processing... ${status.progress}% - ${status.step}`);
   }
 
-  // Timeout
+  // Timeout - hide screen anyway
+  console.warn('[Reflection] Processing timeout after 60 seconds, hiding loading screen');
   hideLoadingScreen();
   return false;
 }
