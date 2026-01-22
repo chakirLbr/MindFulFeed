@@ -394,7 +394,8 @@ function arcPath(cx, cy, r, startAngle, endAngle) {
   const y2 = cy + r * Math.sin(endAngle);
   // Use absolute difference to handle both clockwise and counterclockwise arcs
   const largeArc = Math.abs(endAngle - startAngle) > Math.PI ? 1 : 0;
-  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+  // Use sweep-flag=0 (counterclockwise) to draw arcs upward in SVG coordinates
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 0 ${x2} ${y2}`;
 }
 
 function renderGaugeCard(topic, perTopicEmotions) {
