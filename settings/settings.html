@@ -38,6 +38,22 @@
             </div>
           </div>
 
+          <div class="form-group">
+            <label for="aiModel">
+              OpenAI Model
+              <span class="optional">(for AI mode)</span>
+            </label>
+            <select id="aiModel" class="input">
+              <option value="gpt-4o">GPT-4o (Best quality, multimodal - images + text)</option>
+              <option value="gpt-4o-mini" selected>GPT-4o-mini (Recommended - fast, multimodal, affordable)</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo (Older, multimodal)</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Cheapest, text-only, lower quality)</option>
+            </select>
+            <small style="color: #666; display: block; margin-top: 5px;">
+              <strong>Note:</strong> GPT-4o and GPT-4o-mini support vision (analyzing images). GPT-3.5 is text-only.
+            </small>
+          </div>
+
           <div class="info-box">
             <strong>📝 How to get an API key:</strong>
             <ol>
@@ -47,7 +63,8 @@
               <li>Copy and paste it above</li>
               <li><strong>Add credits:</strong> <a href="https://platform.openai.com/account/billing" target="_blank">platform.openai.com/account/billing</a> (min $5)</li>
             </ol>
-            <p><strong>Cost:</strong> ~$0.01-0.03 per session (very affordable)</p>
+            <p><strong>Analysis Approach:</strong> OpenAI uses <strong>Single-Stage Multimodal Analysis</strong> - GPT-4o analyzes images and captions together in one call for maximum accuracy and efficiency.</p>
+            <p><strong>Cost:</strong> ~$0.01-0.05 per session depending on model (very affordable)</p>
             <p><strong>New users:</strong> OpenAI no longer provides free credits. You must add at least $5 to use the API.</p>
             <p><strong>Privacy:</strong> Your data is sent to OpenAI for analysis. See their <a href="https://openai.com/privacy" target="_blank">privacy policy</a>.</p>
           </div>
@@ -76,7 +93,7 @@
               <input type="radio" name="analysisMode" value="local" />
               <div class="radio-content">
                 <strong>🖥️ LM Studio (Local AI) - Recommended!</strong>
-                <p><strong>100% FREE, Private, Unlimited!</strong> Run AI models on your computer. Supports vision models for analyzing images. No API keys, no internet, no costs. Excellent accuracy (~90-95%).</p>
+                <p><strong>100% FREE, Private, Unlimited!</strong> Run AI models on your computer. Uses <strong>Two-Stage Analysis</strong>: Vision model describes images, then text model categorizes. No API keys, no internet, no costs. Excellent accuracy (~90-95%).</p>
               </div>
             </label>
 
@@ -95,6 +112,12 @@
               <strong>🖥️ LM Studio - FREE Local AI Models!</strong>
               <p><strong>100% FREE • 100% Private • Works Offline • Unlimited Usage</strong></p>
               <p>Run powerful AI models directly on your computer. All processing happens locally - no data leaves your machine!</p>
+              <p><strong>Two-Stage Analysis Approach:</strong></p>
+              <ul style="margin-top: 10px;">
+                <li><strong>Stage 1 (Vision Model):</strong> Analyzes images and generates detailed descriptions</li>
+                <li><strong>Stage 2 (Text Model):</strong> Categorizes posts based on descriptions + captions</li>
+                <li><strong>Benefits:</strong> Lower VRAM usage, works with specialized models, more efficient for local processing</li>
+              </ul>
             </div>
 
             <div class="form-group" style="margin-top: 15px;">

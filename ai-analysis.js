@@ -129,6 +129,10 @@ const AI_ANALYSIS = (() => {
 
   /**
    * AI-powered analysis using LM Studio (local AI models)
+   * TWO-STAGE APPROACH for local models:
+   * - Stage 1: Vision model describes images
+   * - Stage 2: Text model categorizes based on descriptions + captions
+   *
    * Note: Images are converted to base64 by the content script (foreground.js)
    * and passed in via post.imageBase64 field
    * @param {Array} posts - Posts to analyze
@@ -151,98 +155,49 @@ const AI_ANALYSIS = (() => {
 
       // Check if we have images (vision model support)
       const hasImages = topPosts.some(p => p.imageBase64);
-      console.log('[AI Analysis] Vision model mode:', hasImages ? 'YES - analyzing images!' : 'NO - text only');
+      console.log('[AI Analysis] Vision model mode:', hasImages ? 'YES - Two-Stage Analysis (Vision → Text)' : 'NO - text only');
 
-      // Build messages with multimodal content if images are available
-      const messages = [];
-
-      // System message
-      messages.push({
-        role: 'system',
-        content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
-      });
-
-      // User message with multimodal content (images + text)
+      // TWO-STAGE APPROACH for local models with images
       if (hasImages) {
-        // Vision model: send images along with captions
-        const content = [
-          {
-            type: 'text',
-            text: `Analyze these ${topPosts.length} Instagram posts and categorize them based on BOTH the images AND captions:
+        console.log('[AI Analysis] Starting Two-Stage Analysis...');
 
-Categorize each post:
-- topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
-- emotion: Positive, Negative, Neutral, or Mixed
+        // === STAGE 1: Vision Model - Describe Images ===
+        console.log('[AI Analysis] Stage 1: Using vision model to describe images...');
+        const imageDescriptions = await describeImagesWithVision(topPosts, endpoint);
 
-Then provide overall time distribution (as percentages) weighted by these dwell times:
-${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
+        // === STAGE 2: Text Model - Categorize Based on Descriptions + Captions ===
+        console.log('[AI Analysis] Stage 2: Using text model to categorize based on descriptions + captions...');
+        const aiResult = await categorizeWithTextModel(topPosts, imageDescriptions, endpoint);
 
-RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
-{
-  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
-  "overall": {
-    "topics": {"Education": 0.15, "Sport": 0.25, ...},
-    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
-  }
-}
-
-Do NOT describe the images. Do NOT add explanations. Return ONLY the JSON.
-
-Here are the posts:`
-          }
-        ];
-
-        // Add each post with image + caption
-        // Images are already converted to base64 by the content script
-        const postsWithImages = topPosts.filter(p => p.imageBase64);
-        const postsWithoutImages = topPosts.filter(p => !p.imageBase64);
-
-        console.log(`[AI Analysis] Posts with base64 images: ${postsWithImages.length}/${topPosts.length}`);
-        console.log(`[AI Analysis] Posts without images: ${postsWithoutImages.length}`);
-
-        // Build content with base64 images
-        for (let i = 0; i < topPosts.length; i++) {
-          const post = topPosts[i];
-          content.push({
-            type: 'text',
-            text: `\n\nPost ${i+1}:`
-          });
-
-          // Add image if available (already base64 from content script)
-          if (post.imageBase64) {
-            content.push({
-              type: 'image_url',
-              image_url: {
-                url: post.imageBase64  // Base64 data URI (data:image/jpeg;base64,...)
-              }
-            });
-          } else if (post.imageUrl) {
-            // Image was present but not converted (might have scrolled away)
-            content.push({
-              type: 'text',
-              text: `(Image present but not captured - may have scrolled away)`
-            });
-          }
-
-          // Add caption
-          content.push({
-            type: 'text',
-            text: `Caption: "${post.caption || '(no caption)'}"`
-          });
-        }
-
-        messages.push({
-          role: 'user',
-          content: content
-        });
-
+        // Convert to our format
+        return {
+          topics: aiResult.overall.topics,
+          emotions: aiResult.overall.emotions,
+          engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
+          totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
+          postsAnalyzed: posts.length,
+          analysisMethod: 'local-lmstudio-two-stage',
+          perPostAnalysis: aiResult.posts || [],
+          insights: generatePsychologicalInsights(
+            aiResult.overall.topics,
+            aiResult.overall.emotions,
+            { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
+            posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
+          )
+        };
       } else {
-        // Text-only model: just send captions
+        // Text-only: Single stage analysis
+        console.log('[AI Analysis] Text-only mode: Single stage analysis');
         const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
 
-        messages.push({
-          role: 'user',
-          content: `Analyze these ${topPosts.length} social media posts and categorize them:
+        const messages = [
+          {
+            role: 'system',
+            content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+          },
+          {
+            role: 'user',
+            content: `Analyze these ${topPosts.length} social media posts and categorize them:
 
 POSTS:
 ${captions}
@@ -265,58 +220,55 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 }
 
 Do NOT add explanations. Return ONLY the JSON object.`
+          }
+        ];
+
+        const apiUrl = endpoint.endsWith('/v1') ? endpoint : endpoint + '/v1';
+        const response = await fetch(`${apiUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messages: messages,
+            temperature: 0.3,
+            max_tokens: 2000
+          })
         });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`LM Studio API error: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        const content = data.choices[0].message.content;
+
+        const aiResult = extractJSON(content);
+
+        if (!aiResult) {
+          throw new Error('No valid JSON found in LM Studio response');
+        }
+
+        console.log('[AI Analysis] LM Studio response received:', aiResult);
+
+        // Convert to our format
+        return {
+          topics: aiResult.overall.topics,
+          emotions: aiResult.overall.emotions,
+          engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
+          totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
+          postsAnalyzed: posts.length,
+          analysisMethod: 'local-lmstudio-text',
+          perPostAnalysis: aiResult.posts || [],
+          insights: generatePsychologicalInsights(
+            aiResult.overall.topics,
+            aiResult.overall.emotions,
+            { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
+            posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
+          )
+        };
       }
-
-      // Call local LM Studio server (OpenAI-compatible API)
-      const apiUrl = endpoint.endsWith('/v1') ? endpoint : endpoint + '/v1';
-      const response = await fetch(`${apiUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-          // No Authorization header needed for local server
-        },
-        body: JSON.stringify({
-          messages: messages,
-          temperature: 0.3,
-          max_tokens: hasImages ? 3000 : 2000 // More tokens for vision model responses
-          // Note: LM Studio doesn't support response_format, relying on prompt instructions for JSON
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`LM Studio API error: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const data = await response.json();
-      const content = data.choices[0].message.content;
-
-      // Extract JSON from response (handles models that return text + JSON)
-      const aiResult = extractJSON(content);
-
-      if (!aiResult) {
-        throw new Error('No valid JSON found in LM Studio response');
-      }
-
-      console.log('[AI Analysis] LM Studio response received:', aiResult);
-
-      // Convert to our format
-      return {
-        topics: aiResult.overall.topics,
-        emotions: aiResult.overall.emotions,
-        engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
-        totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
-        postsAnalyzed: posts.length,
-        analysisMethod: hasImages ? 'local-lmstudio-vision' : 'local-lmstudio',
-        perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
-        insights: generatePsychologicalInsights(
-          aiResult.overall.topics,
-          aiResult.overall.emotions,
-          { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
-          posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
-        )
-      };
 
     } catch (error) {
       console.error('[AI Analysis] LM Studio error, falling back to heuristics:', error);
@@ -325,20 +277,272 @@ Do NOT add explanations. Return ONLY the JSON object.`
   }
 
   /**
+   * STAGE 1: Use vision model to describe images
+   * @param {Array} posts - Posts with images
+   * @param {string} endpoint - LM Studio endpoint
+   * @returns {Promise<Array>} Array of image descriptions
+   */
+  async function describeImagesWithVision(posts, endpoint) {
+    const postsWithImages = posts.filter(p => p.imageBase64);
+    console.log(`[AI Analysis - Stage 1] Describing ${postsWithImages.length} images...`);
+
+    const descriptions = [];
+
+    // Process each image individually to get descriptions
+    for (let i = 0; i < postsWithImages.length; i++) {
+      const post = postsWithImages[i];
+      const postIndex = posts.indexOf(post);
+
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are an expert at analyzing images. Describe what you see in detail, focusing on: the main subject, activity, mood/emotion, and context. Be concise (2-3 sentences).'
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Describe this Instagram post image in detail:'
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: post.imageBase64
+              }
+            }
+          ]
+        }
+      ];
+
+      try {
+        const apiUrl = endpoint.endsWith('/v1') ? endpoint : endpoint + '/v1';
+        const response = await fetch(`${apiUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messages: messages,
+            temperature: 0.3,
+            max_tokens: 200 // Short description
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const description = data.choices[0].message.content.trim();
+          descriptions.push({ postIndex, description });
+          console.log(`[AI Analysis - Stage 1] Post ${postIndex + 1}: "${description.substring(0, 80)}..."`);
+        } else {
+          console.warn(`[AI Analysis - Stage 1] Failed to describe image for post ${postIndex + 1}`);
+          descriptions.push({ postIndex, description: '(image description unavailable)' });
+        }
+      } catch (error) {
+        console.error(`[AI Analysis - Stage 1] Error describing image ${postIndex + 1}:`, error);
+        descriptions.push({ postIndex, description: '(image description unavailable)' });
+      }
+    }
+
+    console.log(`[AI Analysis - Stage 1] Completed: ${descriptions.length} descriptions generated`);
+    return descriptions;
+  }
+
+  /**
+   * STAGE 2: Use text model to categorize based on image descriptions + captions
+   * @param {Array} posts - All posts
+   * @param {Array} imageDescriptions - Descriptions from vision model
+   * @param {string} endpoint - LM Studio endpoint
+   * @returns {Promise<Object>} Categorization results
+   */
+  async function categorizeWithTextModel(posts, imageDescriptions, endpoint) {
+    console.log(`[AI Analysis - Stage 2] Categorizing ${posts.length} posts based on descriptions + captions...`);
+
+    // Build description map
+    const descriptionMap = {};
+    for (const { postIndex, description } of imageDescriptions) {
+      descriptionMap[postIndex] = description;
+    }
+
+    // Build combined text for each post
+    const postsText = posts.map((p, i) => {
+      const caption = p.caption || '(no caption)';
+      const imageDesc = descriptionMap[i] || '(no image)';
+      return `${i + 1}. Caption: "${caption}"\n   Image: ${imageDesc}`;
+    }).join('\n\n');
+
+    const messages = [
+      {
+        role: 'system',
+        content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+      },
+      {
+        role: 'user',
+        content: `Analyze these ${posts.length} social media posts and categorize them based on both captions and image descriptions:
+
+POSTS:
+${postsText}
+
+Provide a JSON response with:
+1. For each post (by number), classify:
+   - topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+   - emotion: Positive, Negative, Neutral, or Mixed
+
+2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
+${posts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
+
+RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
+{
+  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "overall": {
+    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
+  }
+}
+
+Do NOT add explanations. Return ONLY the JSON object.`
+      }
+    ];
+
+    const apiUrl = endpoint.endsWith('/v1') ? endpoint : endpoint + '/v1';
+    const response = await fetch(`${apiUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        messages: messages,
+        temperature: 0.3,
+        max_tokens: 2000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`LM Studio API error (Stage 2): ${response.status} ${response.statusText} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    const aiResult = extractJSON(content);
+
+    if (!aiResult) {
+      throw new Error('No valid JSON found in LM Studio Stage 2 response');
+    }
+
+    console.log('[AI Analysis - Stage 2] Categorization completed:', aiResult);
+    return aiResult;
+  }
+
+  /**
    * AI-powered analysis using OpenAI direct API (requires paid key)
+   * SINGLE-STAGE MULTIMODAL APPROACH for OpenAI models (GPT-4o, GPT-4o-mini):
+   * - Analyzes both images and captions in one API call
+   * - More efficient and accurate than two-stage for cloud models
+   *
    * @param {Array} posts - Posts to analyze
    * @param {string} apiKey - OpenAI API key
-   * @param {string} model - AI model to use
+   * @param {string} model - AI model to use (gpt-4o, gpt-4o-mini, etc.)
    */
-  async function analyzeWithAI(posts, apiKey, model = 'gpt-4-turbo-preview') {
+  async function analyzeWithAI(posts, apiKey, model = 'gpt-4o-mini') {
     try {
       console.log('[AI Analysis] Using OpenAI direct API with model:', model);
 
-      // Prepare analysis data
-      const topPosts = posts.slice(0, 20); // Analyze top 20 posts
-      const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
+      // Prepare analysis data - limit posts based on whether we have images
+      const hasAnyImages = posts.some(p => p.imageBase64);
+      const MAX_POSTS = hasAnyImages ? 15 : 30; // Lower limit for multimodal to manage costs
+      const topPosts = posts.slice(0, Math.min(posts.length, MAX_POSTS));
 
-      const prompt = `Analyze these ${topPosts.length} social media posts and categorize them:
+      console.log(`[AI Analysis] Analyzing ${topPosts.length} posts out of ${posts.length} total`);
+      if (posts.length > MAX_POSTS) {
+        console.log(`[AI Analysis] Note: Capped at ${MAX_POSTS} posts for ${hasAnyImages ? 'multimodal' : 'text'} analysis`);
+      }
+
+      // Check if model supports vision (GPT-4o family)
+      const supportsVision = model.includes('gpt-4o') || model.includes('gpt-4-turbo');
+      const hasImages = supportsVision && topPosts.some(p => p.imageBase64);
+
+      console.log('[AI Analysis] Multimodal mode:', hasImages ? 'YES - Single-stage (images + captions)' : 'NO - text only');
+
+      let messages;
+
+      if (hasImages) {
+        // SINGLE-STAGE MULTIMODAL: Send images + captions together
+        const content = [
+          {
+            type: 'text',
+            text: `Analyze these ${topPosts.length} Instagram posts and categorize them based on BOTH images AND captions:
+
+Categorize each post:
+- topic: Education, Entertainment, Social Connection, News & Current Events, Inspiration, Shopping & Commerce, Health & Wellness, Creative Arts, or Sport
+- emotion: Positive, Negative, Neutral, or Mixed
+
+Then provide overall time distribution (as percentages) weighted by these dwell times:
+${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
+
+RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
+{
+  "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
+  "overall": {
+    "topics": {"Education": 0.15, "Sport": 0.25, ...},
+    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
+  }
+}
+
+Here are the posts:`
+          }
+        ];
+
+        // Add each post with image + caption
+        for (let i = 0; i < topPosts.length; i++) {
+          const post = topPosts[i];
+          content.push({
+            type: 'text',
+            text: `\n\nPost ${i+1}:`
+          });
+
+          // Add image if available
+          if (post.imageBase64) {
+            content.push({
+              type: 'image_url',
+              image_url: {
+                url: post.imageBase64,
+                detail: 'low' // Use low detail to reduce costs
+              }
+            });
+          }
+
+          // Add caption
+          content.push({
+            type: 'text',
+            text: `Caption: "${post.caption || '(no caption)'}"`
+          });
+        }
+
+        messages = [
+          {
+            role: 'system',
+            content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+          },
+          {
+            role: 'user',
+            content: content
+          }
+        ];
+
+      } else {
+        // Text-only analysis
+        const captions = topPosts.map((p, i) => `${i+1}. "${p.caption}"`).join('\n');
+
+        messages = [
+          {
+            role: 'system',
+            content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+          },
+          {
+            role: 'user',
+            content: `Analyze these ${topPosts.length} social media posts and categorize them:
 
 POSTS:
 ${captions}
@@ -351,25 +555,17 @@ Provide a JSON response with:
 2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
 ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-Format:
+RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 {
   "posts": [{"topic": "Sport", "emotion": "Positive"}, ...],
   "overall": {
     "topics": {"Education": 0.15, "Sport": 0.25, ...},
     "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
   }
-}`;
-
-      const messages = [
-        {
-          role: 'system',
-          content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ];
+}`
+          }
+        ];
+      }
 
       // Direct OpenAI API call
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -382,6 +578,7 @@ Format:
           model: model,
           messages: messages,
           temperature: 0.3,
+          max_tokens: hasImages ? 3000 : 2000,
           response_format: { type: 'json_object' }
         })
       });
@@ -394,7 +591,7 @@ Format:
       const data = await response.json();
       const content = data.choices[0].message.content;
 
-      // Extract JSON from response (OpenAI usually returns clean JSON, but just in case)
+      // Extract JSON from response
       const aiResult = extractJSON(content);
 
       if (!aiResult) {
@@ -407,11 +604,11 @@ Format:
       return {
         topics: aiResult.overall.topics,
         emotions: aiResult.overall.emotions,
-        engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 }, // Simplified for now
+        engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
-        analysisMethod: `openai-${model}`,
-        perPostAnalysis: aiResult.posts || [], // Store per-post AI categorization!
+        analysisMethod: hasImages ? `openai-${model}-multimodal` : `openai-${model}-text`,
+        perPostAnalysis: aiResult.posts || [],
         insights: generatePsychologicalInsights(
           aiResult.overall.topics,
           aiResult.overall.emotions,

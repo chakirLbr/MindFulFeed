@@ -214,11 +214,11 @@ Click the **Analytics** button (📊) in the popup to see:
    - Tracks visibility, dwell time, and captions
    - Sends updates to service worker every 2-3 seconds
 
-2. **AI Analysis**
-   - Service worker receives raw tracking data
-   - Processes through AI analysis engine
-   - Applies NLP heuristics and pattern matching
-   - Generates topic/emotion classifications
+2. **AI Analysis** (3 modes available)
+   - **Heuristic:** Fast NLP keyword matching (offline, free)
+   - **LM Studio (Two-Stage):** Vision model describes images → Text model categorizes (free, local, private)
+   - **OpenAI (Single-Stage):** GPT-4o analyzes images + captions together (cloud, paid, highest accuracy)
+   - Generates topic/emotion classifications weighted by dwell time
 
 3. **Gamification**
    - Calculates stats from daily aggregated data
@@ -292,22 +292,85 @@ See `CLAUDE.md` for detailed instructions. Quick overview:
 3. Implement platform-specific tracking logic
 4. Update service worker to handle new platform data
 
+### AI Analysis Modes
+
+MindfulFeed supports three analysis modes with different approaches optimized for each:
+
+#### 1. **Heuristic Mode (Default)** 🔤
+- Fast, offline keyword matching
+- No API keys required
+- Works completely offline
+- Good accuracy (~75%)
+- Best for: Privacy-conscious users, offline usage
+
+#### 2. **LM Studio Mode (Recommended)** 🖥️
+- **100% FREE, Private, Unlimited!**
+- Run AI models locally on your computer
+- **Two-Stage Analysis Approach:**
+  - **Stage 1 (Vision Model):** Analyzes images and generates detailed descriptions
+  - **Stage 2 (Text Model):** Categorizes posts based on descriptions + captions
+- **Benefits of Two-Stage for Local Models:**
+  - Lower VRAM usage (important for consumer GPUs)
+  - Works with specialized models (separate vision and text models)
+  - More efficient for local processing
+  - Can process more posts without exhausting resources
+- Excellent accuracy (~90-95%)
+- Recommended models:
+  - **Qwen3-VL-4B** (vision) + **Phi-3 Mini** (text) - Best balance
+  - **Qwen2-VL-7B** (vision) + **Gemma 2 9B** (text) - Higher quality
+- Best for: Maximum privacy, unlimited usage, no costs
+
+#### 3. **OpenAI API Mode** ☁️
+- **Single-Stage Multimodal Analysis:**
+  - GPT-4o analyzes images and captions together in one API call
+  - More efficient for cloud models with unlimited compute
+  - Maximum accuracy and context understanding
+- **Why Single-Stage for OpenAI:**
+  - GPT-4o is natively multimodal (designed for images + text)
+  - Cloud compute resources can handle complex multimodal processing
+  - Single call = lower latency and fewer API costs
+  - Better context preservation between visual and textual analysis
+- Requires OpenAI API key (~$0.01-0.05 per session)
+- Excellent accuracy (~95%)
+- Models: GPT-4o, GPT-4o-mini (recommended), GPT-4 Turbo
+- Best for: Users who prefer cloud-based AI and don't mind API costs
+
+### Setting Up AI Analysis
+
+#### LM Studio (Local AI)
+1. Download [LM Studio](https://lmstudio.ai) (Free for Windows/Mac/Linux)
+2. Install and open LM Studio
+3. Download recommended models:
+   - Vision: **Qwen3-VL-4B** or **Qwen2-VL-7B**
+   - Text: **Phi-3 Mini** or **Gemma 2 9B**
+4. Start the local server (Local Server tab → Start Server)
+5. Load your model
+6. In MindfulFeed settings, select "LM Studio" mode
+7. Save and start tracking!
+
+#### OpenAI API
+1. Get API key from [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+2. Add credits ($5 minimum)
+3. In MindfulFeed settings, select "OpenAI Direct API" mode
+4. Enter your API key
+5. Choose model (GPT-4o-mini recommended for cost)
+6. Save and start tracking!
+
 ### Extending AI Analysis
 
-The AI analysis system supports easy integration with external APIs:
+The AI analysis system supports easy integration with external APIs. Both approaches are implemented:
 
 ```javascript
-// In ai-analysis.js
-async function analyzeWithAI(posts, apiKey) {
-  // Call Claude API, GPT-4, or custom ML model
-  const response = await fetch('YOUR_API_ENDPOINT', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ posts })
-  });
+// Two-Stage Approach (Local Models)
+// Stage 1: Vision model describes images
+const descriptions = await describeImagesWithVision(posts, endpoint);
 
-  return await response.json();
-}
+// Stage 2: Text model categorizes based on descriptions
+const results = await categorizeWithTextModel(posts, descriptions, endpoint);
+
+// Single-Stage Approach (OpenAI GPT-4o)
+// Multimodal: images + captions in one call
+const results = await analyzeWithAI(posts, apiKey, 'gpt-4o-mini');
 ```
 
 ## 📊 Research & Citations

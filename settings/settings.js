@@ -19,7 +19,7 @@ async function loadSettings() {
   document.getElementById('localEndpoint').value = localEndpoint;
 
   // Load AI model
-  const model = settings[MODEL_KEY] || 'gpt-5';
+  const model = settings[MODEL_KEY] || 'gpt-4o-mini';
   const modelSelect = document.getElementById('aiModel');
   if (modelSelect) {
     modelSelect.value = model;
@@ -57,7 +57,8 @@ document.getElementById('saveSettings').addEventListener('click', async () => {
   const apiKey = document.getElementById('apiKey').value.trim();
   const localEndpoint = document.getElementById('localEndpoint').value.trim();
   const mode = document.querySelector('input[name="analysisMode"]:checked').value;
-  const model = document.getElementById('aiModel').value;
+  const modelSelect = document.getElementById('aiModel');
+  const model = modelSelect ? modelSelect.value : 'gpt-4o-mini';
 
   // Validate based on mode
   if (mode === 'ai' && !apiKey) {
