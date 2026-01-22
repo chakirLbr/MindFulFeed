@@ -687,6 +687,10 @@ async function loadDashboard() {
       pre.textContent = debugHTML;
     }
   }
+
+  // Render today's sessions
+  const sessionHistory = res?.sessionHistory || [];
+  renderTodaysSessions(sessionHistory);
 }
 
 // Helper function to show AI categorization for individual posts
@@ -747,6 +751,142 @@ function analyzePostDebug(caption) {
   else if (posCount > 0 && negCount > 0) emotion = 'Mixed';
 
   return { topic, emotion };
+}
+
+function formatTime(timestamp) {
+  const date = new Date(timestamp);
+  let hours = date.getHours();
+  const minutes = date.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  const minutesStr = String(minutes).padStart(2, '0');
+  return `${hours}:${minutesStr} ${ampm}`;
+}
+
+function formatDuration(ms) {
+  const totalMinutes = Math.round(ms / 60000);
+  if (totalMinutes < 1) return "< 1 min";
+  return `${totalMinutes} min`;
+}
+
+function getDominantKey(obj) {
+  if (!obj) return null;
+  let maxKey = null;
+  let maxVal = 0;
+  for (const [key, val] of Object.entries(obj)) {
+    if (val > maxVal) {
+      maxVal = val;
+      maxKey = key;
+    }
+  }
+  return maxKey;
+}
+
+function getTopicIcon(topic) {
+  const icons = {
+    'Social': '🔗',
+    'Educational': '📚',
+    'Entertainment': '🎭',
+    'Informative': '🏛️'
+  };
+  return icons[topic] || '📱';
+}
+
+function getTopicDisplayName(topic) {
+  if (topic === 'Informative') return 'Civic';
+  return topic;
+}
+
+function getSessionDescription(session) {
+  const topic = getDominantKey(session.topics);
+  const postCount = session.raw?.posts?.length || 0;
+  const platform = session.platform === 'youtube' ? 'videos' : 'posts';
+
+  const descriptions = {
+    'Social': `Scrolled through ${postCount} social ${platform}`,
+    'Educational': `Watched educational content and tutorials`,
+    'Entertainment': `Browsed entertainment and comedy content`,
+    'Informative': `Viewed news and informative content`
+  };
+
+  return descriptions[topic] || `Browsed ${postCount} ${platform}`;
+}
+
+function getEmotionLabel(emotion, topic) {
+  if (topic === 'Informative' && emotion === 'Heavy') {
+    return 'Civic/Informational tone (Important but emotionally heavy)';
+  }
+
+  const labels = {
+    'Heavy': 'Negative tone',
+    'Light': 'Positive tone',
+    'Neutral': 'Neutral tone'
+  };
+  return labels[emotion] || 'Neutral tone';
+}
+
+function getEmotionColor(emotion) {
+  return cssVar(EMOTIONS.find(e => e.key === emotion)?.colorVar || '--e-neutral');
+}
+
+function getTopicColor(topic) {
+  return cssVar(TOPICS.find(t => t.key === topic)?.colorVar || '--c-social');
+}
+
+function renderTodaysSessions(sessionHistory) {
+  const container = document.getElementById('todaySessions');
+  if (!container) return;
+
+  // Filter sessions for today
+  const todayKey = isoDate(new Date());
+  const todaySessions = sessionHistory.filter(session => {
+    const sessionDate = isoDate(new Date(session.endedAt));
+    return sessionDate === todayKey;
+  });
+
+  if (todaySessions.length === 0) {
+    container.innerHTML = '<p style="color: var(--muted); font-size: 13px; padding: 8px 0;">No sessions recorded today. Start tracking to see your sessions here!</p>';
+    return;
+  }
+
+  // Sort sessions by endedAt (most recent first)
+  todaySessions.sort((a, b) => b.endedAt - a.endedAt);
+
+  container.innerHTML = '';
+
+  todaySessions.forEach(session => {
+    const topic = getDominantKey(session.topics);
+    const emotion = getDominantKey(session.emotions);
+    const topicClass = topic ? topic.toLowerCase() : 'social';
+    const topicColor = getTopicColor(topic);
+    const emotionColor = getEmotionColor(emotion);
+
+    const sessionEl = document.createElement('div');
+    sessionEl.className = `sessionItem topic-${topicClass}`;
+
+    sessionEl.innerHTML = `
+      <span class="sessionDot" style="background: ${topicColor}"></span>
+      <div class="sessionHeader">
+        <span class="sessionTime">${formatTime(session.endedAt)}</span>
+        <span class="sessionDuration">⏱ ${formatDuration(session.durationMs)}</span>
+        <span class="sessionTopic" style="color: ${topicColor}">${getTopicIcon(topic)} ${getTopicDisplayName(topic) || 'Unknown'}</span>
+      </div>
+      <div class="sessionPlatform">
+        <svg class="platformIcon" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073z"/>
+          <path d="M12 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+        </svg>
+        <span>${session.platform === 'youtube' ? 'youtube.com' : 'instagram.com'}</span>
+      </div>
+      <div class="sessionDesc">${getSessionDescription(session)}</div>
+      <div class="sessionEmotion">
+        <span class="emotionDot" style="background: ${emotionColor}"></span>
+        <span class="emotionLabel">${getEmotionLabel(emotion, topic)}</span>
+      </div>
+    `;
+
+    container.appendChild(sessionEl);
+  });
 }
 
 document.getElementById("refreshBtn")?.addEventListener("click", loadDashboard);

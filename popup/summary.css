@@ -210,6 +210,123 @@ body{
   color: var(--muted);
 }
 
+/* Today's Sessions */
+.sessionsCard{
+  margin-top: 14px;
+}
+
+.sessionsList{
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.sessionItem{
+  position: relative;
+  padding: 14px 14px 14px 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid rgba(36,49,58,0.08);
+}
+
+.sessionItem.topic-social{
+  background: rgba(255, 176, 32, 0.08);
+}
+
+.sessionItem.topic-informative{
+  background: rgba(47, 107, 255, 0.08);
+}
+
+.sessionItem.topic-educational{
+  background: rgba(53, 199, 89, 0.08);
+}
+
+.sessionItem.topic-entertainment{
+  background: rgba(255, 59, 48, 0.08);
+}
+
+.sessionDot{
+  position: absolute;
+  left: 10px;
+  top: 18px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.sessionHeader{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sessionTime{
+  font-weight: 750;
+  color: rgba(36,49,58,0.88);
+  font-size: 14px;
+}
+
+.sessionDuration{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: rgba(36,49,58,0.62);
+}
+
+.sessionTopic{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 650;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255,255,255,0.6);
+}
+
+.sessionPlatform{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(36,49,58,0.62);
+  margin-top: 2px;
+}
+
+.platformIcon{
+  width: 14px;
+  height: 14px;
+}
+
+.sessionDesc{
+  font-size: 13px;
+  color: rgba(36,49,58,0.78);
+  margin-top: 2px;
+}
+
+.sessionEmotion{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.emotionDot{
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.emotionLabel{
+  color: rgba(36,49,58,0.72);
+}
+
 @media (max-width: 900px){
   .gridTop{ grid-template-columns: 1fr; }
   .topicWrap{ grid-template-columns: 1fr; justify-items:center; }
