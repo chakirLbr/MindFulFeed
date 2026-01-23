@@ -209,12 +209,80 @@ body{
   margin-top: 2px;
 }
 
-.heatmapContainer{
+.heatmapWrapper{
   margin-top: 16px;
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.heatmapContainer{
   display: flex;
   flex-direction: column;
   gap: 4px;
   max-width: 420px;
+  flex-shrink: 0;
+}
+
+.heatmapExplanation{
+  flex: 1;
+  min-width: 280px;
+  padding: 16px;
+  background: rgba(78, 156, 166, 0.04);
+  border: 1px solid rgba(78, 156, 166, 0.12);
+  border-radius: 12px;
+}
+
+.explanationTitle{
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  font-weight: 750;
+  color: rgba(36,49,58,0.88);
+}
+
+.explanationSection{
+  margin-bottom: 16px;
+}
+
+.explanationSection:last-child{
+  margin-bottom: 0;
+}
+
+.explanationSubtitle{
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--highlight);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.explanationText{
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(36,49,58,0.78);
+}
+
+.explanationList{
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(36,49,58,0.78);
+}
+
+.explanationList li{
+  margin-bottom: 6px;
+}
+
+.explanationList li:last-child{
+  margin-bottom: 0;
+}
+
+.explanationList strong{
+  color: rgba(36,49,58,0.88);
+  font-weight: 650;
 }
 
 .heatmapHeader{
@@ -290,8 +358,17 @@ body{
 }
 
 @media (max-width: 900px){
+  .heatmapWrapper{
+    flex-direction: column;
+    gap: 20px;
+  }
+
   .heatmapContainer{
     max-width: 380px;
+  }
+
+  .heatmapExplanation{
+    max-width: 100%;
   }
 
   .heatmapHeader,
@@ -315,8 +392,31 @@ body{
 }
 
 @media (max-width: 650px){
+  .heatmapWrapper{
+    flex-direction: column;
+    gap: 16px;
+  }
+
   .heatmapContainer{
     max-width: 340px;
+  }
+
+  .heatmapExplanation{
+    padding: 12px;
+    min-width: 0;
+  }
+
+  .explanationTitle{
+    font-size: 13px;
+  }
+
+  .explanationSubtitle{
+    font-size: 11px;
+  }
+
+  .explanationText,
+  .explanationList{
+    font-size: 12px;
   }
 
   .heatmapHeader,

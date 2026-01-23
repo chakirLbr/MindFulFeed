@@ -46,7 +46,33 @@
           <h2>Category × Emotion Heatmap</h2>
           <div class="heatmapSubtitle">Time spent per category and emotional tone</div>
         </div>
-        <div id="heatmapMatrix" class="heatmapContainer"></div>
+        <div class="heatmapWrapper">
+          <div id="heatmapMatrix" class="heatmapContainer"></div>
+          <div class="heatmapExplanation">
+            <h3 class="explanationTitle">Understanding the Heatmap</h3>
+            <div class="explanationSection">
+              <h4 class="explanationSubtitle">What it shows</h4>
+              <p class="explanationText">
+                This heatmap visualizes how your time is distributed across different content categories and emotional tones. Each cell represents the intersection of a category (row) and emotion (column).
+              </p>
+            </div>
+            <div class="explanationSection">
+              <h4 class="explanationSubtitle">How to read it</h4>
+              <ul class="explanationList">
+                <li><strong>Rows:</strong> Content categories (Educational, Informative, Social, Entertainment)</li>
+                <li><strong>Columns:</strong> Emotional tones detected (Heavy, Light, Neutral)</li>
+                <li><strong>Cell color:</strong> Intensity indicates time spent—darker colors mean more time</li>
+                <li><strong>Cell values:</strong> Show exact time and percentage of total session</li>
+              </ul>
+            </div>
+            <div class="explanationSection">
+              <h4 class="explanationSubtitle">Interaction</h4>
+              <p class="explanationText">
+                Hover over any cell to see it expand and get detailed information about time spent in that category-emotion combination.
+              </p>
+            </div>
+          </div>
+        </div>
       </article>
 
       <article class="card">
