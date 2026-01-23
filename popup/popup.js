@@ -154,7 +154,12 @@ async function updateUI() {
 
   // Update monitoring status
   if (isTracking) {
-    monitoringStatus.textContent = "Monitoring Instagram";
+    // Get platform from session metadata
+    const sessionMeta = await getStorageData('mf_session_meta');
+    const platform = sessionMeta?.platform || 'instagram';
+    const platformName = platform === 'youtube' ? 'YouTube' : 'Instagram';
+
+    monitoringStatus.textContent = `Monitoring ${platformName}`;
     monitoringStatus.classList.remove("inactive");
     toggleBtn.classList.add("tracking");
     toggleText.textContent = "Stop tracking";
@@ -177,11 +182,17 @@ async function updateUI() {
   const lastSession = await getStorageData('mf_last_session');
   const dailyStats = await getStorageData('mf_daily_stats');
 
-  // Update posts count
-  if (isTracking && rawSession && rawSession.posts) {
-    postsCount.textContent = rawSession.posts.length;
-  } else if (lastSession && lastSession.raw && lastSession.raw.posts) {
-    postsCount.textContent = lastSession.raw.posts.length;
+  // Update posts count (handle both Instagram posts and YouTube videos)
+  if (isTracking && rawSession) {
+    const count = rawSession.platform === 'youtube'
+      ? (rawSession.videos?.length || 0)
+      : (rawSession.posts?.length || 0);
+    postsCount.textContent = count;
+  } else if (lastSession && lastSession.raw) {
+    const count = lastSession.platform === 'youtube'
+      ? (lastSession.raw.videos?.length || 0)
+      : (lastSession.raw.posts?.length || 0);
+    postsCount.textContent = count;
   } else {
     postsCount.textContent = "0";
   }

@@ -512,15 +512,23 @@ async function start() {
     acceptFinalizeUntil: 0
   });
 
-  // initialize raw session container
-  await setRawSession({
+  // initialize raw session container (use appropriate field for platform)
+  const rawSessionInit = {
     sessionId: sid,
     startedAt: next.startedAt,
     platform,
     pageUrl: null,
-    activeKey: null,
-    posts: []
-  });
+    activeKey: null
+  };
+
+  // Add platform-specific field
+  if (platform === 'youtube') {
+    rawSessionInit.videos = [];
+  } else {
+    rawSessionInit.posts = [];
+  }
+
+  await setRawSession(rawSessionInit);
 
   await signalContentToTab(tab.id, "START", { sessionId: sid, startedAt: next.startedAt });
 

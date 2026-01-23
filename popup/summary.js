@@ -1003,17 +1003,20 @@ function getTopicDisplayName(topic) {
 
 function getSessionDescription(session) {
   const topic = getDominantKey(session.topics);
-  const postCount = session.raw?.posts?.length || 0;
-  const platform = session.platform === 'youtube' ? 'videos' : 'posts';
+  const isYouTube = session.platform === 'youtube';
+  const itemCount = isYouTube
+    ? (session.raw?.videos?.length || 0)
+    : (session.raw?.posts?.length || 0);
+  const itemType = isYouTube ? 'videos' : 'posts';
 
   const descriptions = {
-    'Social': `Scrolled through ${postCount} social ${platform}`,
+    'Social': `Scrolled through ${itemCount} social ${itemType}`,
     'Educational': `Watched educational content and tutorials`,
     'Entertainment': `Browsed entertainment and comedy content`,
     'Informative': `Viewed news and informative content`
   };
 
-  return descriptions[topic] || `Browsed ${postCount} ${platform}`;
+  return descriptions[topic] || `Browsed ${itemCount} ${itemType}`;
 }
 
 function getEmotionLabel(emotion, topic) {
@@ -1176,13 +1179,17 @@ function openSessionModal(session) {
   modalTitle.style.color = topicColor;
 
   const sessionDate = new Date(session.endedAt).toLocaleString();
-  const postCount = session.raw?.posts?.length || 0;
+  const isYouTube = session.platform === 'youtube';
+  const itemCount = isYouTube
+    ? (session.raw?.videos?.length || 0)
+    : (session.raw?.posts?.length || 0);
+  const itemLabel = isYouTube ? 'Videos' : 'Posts';
 
   modalSubtitle.innerHTML = `
     <span><strong>Time:</strong> ${sessionDate}</span>
     <span><strong>Duration:</strong> ${formatDuration(session.durationMs)}</span>
-    <span><strong>Posts:</strong> ${postCount}</span>
-    <span><strong>Platform:</strong> ${session.platform === 'youtube' ? 'YouTube' : 'Instagram'}</span>
+    <span><strong>${itemLabel}:</strong> ${itemCount}</span>
+    <span><strong>Platform:</strong> ${isYouTube ? 'YouTube' : 'Instagram'}</span>
   `;
 
   // Render posts
@@ -1205,54 +1212,69 @@ function renderSessionPosts(session) {
   const postsGrid = document.getElementById('postsGrid');
   if (!postsGrid) return;
 
-  const posts = session.raw?.posts || [];
+  // Handle both Instagram posts and YouTube videos
+  const isYouTube = session.platform === 'youtube';
+  const items = isYouTube ? (session.raw?.videos || []) : (session.raw?.posts || []);
+  const itemLabel = isYouTube ? 'Video' : 'Post';
   const perPostAI = session.fullAnalysis?.perPostAnalysis || [];
   const hasAIResults = perPostAI.length > 0;
 
-  if (posts.length === 0) {
-    postsGrid.innerHTML = '<p style="color: var(--muted); text-align: center; padding: 20px;">No posts tracked in this session.</p>';
+  if (items.length === 0) {
+    postsGrid.innerHTML = `<p style="color: var(--muted); text-align: center; padding: 20px;">No ${itemLabel.toLowerCase()}s tracked in this session.</p>`;
     return;
   }
 
   postsGrid.innerHTML = '';
 
-  posts.forEach((post, index) => {
-    // Get AI analysis for this post
-    const postAnalysis = hasAIResults && perPostAI[index]
+  items.forEach((item, index) => {
+    // Get AI analysis for this item
+    const itemAnalysis = hasAIResults && perPostAI[index]
       ? perPostAI[index]
-      : analyzePostDebug(post.caption);
+      : analyzePostDebug(item.caption);
 
-    const postCard = document.createElement('div');
-    postCard.className = 'postCard';
+    const itemCard = document.createElement('div');
+    itemCard.className = 'postCard';
 
-    const dwellSeconds = Math.round(post.dwellMs / 1000);
+    // For YouTube videos, use watchMs; for Instagram posts, use dwellMs
+    const dwellMs = item.watchMs || item.dwellMs || 0;
+    const dwellSeconds = Math.round(dwellMs / 1000);
     const dwellText = dwellSeconds < 60
       ? `${dwellSeconds}s`
       : `${Math.floor(dwellSeconds / 60)}m ${dwellSeconds % 60}s`;
 
-    // Image section
-    const imageHtml = post.imageUrl
-      ? `<img src="${post.imageUrl}" alt="Post ${index + 1}" />`
-      : '📷';
+    // Image section - handle both post images and video thumbnails
+    let imageHtml;
+    if (item.imageUrl) {
+      imageHtml = `<img src="${item.imageUrl}" alt="${itemLabel} ${index + 1}" />`;
+    } else if (isYouTube && item.thumbnail) {
+      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" />`;
+    } else {
+      imageHtml = isYouTube ? '🎥' : '📷';
+    }
 
     // Topic and emotion tags
-    const topic = postAnalysis.topic || 'Unknown';
-    const emotion = postAnalysis.emotion || 'Neutral';
-    const engagement = postAnalysis.engagement || '';
+    const topic = itemAnalysis.topic || 'Unknown';
+    const emotion = itemAnalysis.emotion || 'Neutral';
+    const engagement = itemAnalysis.engagement || '';
 
     const topicClass = topic.toLowerCase();
     const topicColor = getTopicColor(topic);
 
-    postCard.innerHTML = `
+    // For YouTube videos, show title if available
+    const captionText = isYouTube && item.title
+      ? item.title
+      : (item.caption || 'No caption');
+
+    itemCard.innerHTML = `
       <div class="postImage">
         ${imageHtml}
       </div>
       <div class="postContent">
         <div class="postHeader">
-          <span class="postNumber">Post #${index + 1}</span>
+          <span class="postNumber">${itemLabel} #${index + 1}</span>
           <span class="postDwell">⏱ ${dwellText}</span>
         </div>
-        <div class="postCaption">${post.caption || 'No caption'}</div>
+        <div class="postCaption">${captionText}</div>
         <div class="postTags">
           <span class="postTag topic-${topicClass}" style="color: ${topicColor}">
             ${getTopicIcon(topic)} ${topic}
@@ -1263,15 +1285,15 @@ function renderSessionPosts(session) {
       </div>
     `;
 
-    // Make post card clickable to open Instagram post
-    if (post.href) {
-      postCard.style.cursor = 'pointer';
-      postCard.addEventListener('click', () => {
-        window.open(post.href, '_blank');
+    // Make card clickable to open the content
+    if (item.href) {
+      itemCard.style.cursor = 'pointer';
+      itemCard.addEventListener('click', () => {
+        window.open(item.href, '_blank');
       });
     }
 
-    postsGrid.appendChild(postCard);
+    postsGrid.appendChild(itemCard);
   });
 }
 
