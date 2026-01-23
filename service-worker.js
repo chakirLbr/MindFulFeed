@@ -629,6 +629,15 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   const itemType = platform === 'youtube' ? 'videos' : 'posts';
 
   console.log(`[MindfulFeed] Analyzing ${itemCount} ${itemType}...`);
+  console.log('[MindfulFeed] Raw session data:', {
+    platform,
+    itemCount,
+    hasVideos: !!raw?.videos,
+    hasPosts: !!raw?.posts,
+    videosLength: raw?.videos?.length,
+    postsLength: raw?.posts?.length,
+    sessionId: raw?.sessionId
+  });
 
   // Update status
   await setProcessingStatus({
@@ -838,12 +847,20 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
       }
 
+      // Log what we're receiving
+      const platform = payload.platform || 'unknown';
+      const itemCount = platform === 'youtube'
+        ? (payload.videos?.length || 0)
+        : (payload.posts?.length || 0);
+      console.log(`[Service Worker] Received ${payload.finalize ? 'FINAL' : 'update'} from ${platform}: ${itemCount} items`);
+
       // Merge shallowly (keep latest snapshot)
       await setRawSession(payload);
 
       // If this is the final snapshot, stop accepting further updates
       if (payload.finalize && meta && meta.sessionId === payload.sessionId) {
-        await setSessionMeta({ sessionId: meta.sessionId, tabId: meta.tabId, acceptFinalizeUntil: 0 });
+        console.log('[Service Worker] Final snapshot received, closing finalize window');
+        await setSessionMeta({ sessionId: meta.sessionId, tabId: meta.tabId, platform: meta.platform, acceptFinalizeUntil: 0 });
       }
       sendResponse({ ok: true });
       return;

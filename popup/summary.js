@@ -1219,7 +1219,21 @@ function renderSessionPosts(session) {
   const perPostAI = session.fullAnalysis?.perPostAnalysis || [];
   const hasAIResults = perPostAI.length > 0;
 
+  console.log('[Modal] Rendering session:', {
+    platform: session.platform,
+    isYouTube,
+    hasRaw: !!session.raw,
+    hasVideos: !!session.raw?.videos,
+    hasPosts: !!session.raw?.posts,
+    videosLength: session.raw?.videos?.length,
+    postsLength: session.raw?.posts?.length,
+    itemsLength: items.length,
+    sessionId: session.sessionId,
+    rawKeys: session.raw ? Object.keys(session.raw) : []
+  });
+
   if (items.length === 0) {
+    console.warn('[Modal] No items found for', itemLabel, 'session. Raw data:', session.raw);
     postsGrid.innerHTML = `<p style="color: var(--muted); text-align: center; padding: 20px;">No ${itemLabel.toLowerCase()}s tracked in this session.</p>`;
     return;
   }

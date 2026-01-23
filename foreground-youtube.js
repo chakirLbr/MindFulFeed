@@ -176,6 +176,13 @@
 
     const key = metadata.videoId;
     if (!videos.has(key)) {
+      console.log('[MindfulFeed YouTube] New video tracked:', {
+        videoId: metadata.videoId,
+        title: metadata.title,
+        channel: metadata.channel,
+        isAd: metadata.isAd
+      });
+
       videos.set(key, {
         videoId: metadata.videoId,
         title: metadata.title,
@@ -254,6 +261,7 @@
 
     // Check if video changed
     if (currentVideoId !== metadata.videoId) {
+      console.log('[MindfulFeed YouTube] Video changed to:', metadata.videoId, metadata.title);
       currentVideoId = metadata.videoId;
       ensureVideo(metadata);
       setupVisibilityObserver();
@@ -262,11 +270,17 @@
     }
 
     // Accumulate watch time if video is playing and visible
-    if (isVideoPlaying() && currentVideoVisible && lastCheckTime > 0) {
+    const playing = isVideoPlaying();
+    const visible = currentVideoVisible;
+
+    if (playing && visible && lastCheckTime > 0) {
       const elapsed = t - lastCheckTime;
       const video = videos.get(currentVideoId);
       if (video && !video.isAd) { // Don't count ad watch time
         video.watchMs += elapsed;
+        if (video.watchMs % 5000 < 1000) { // Log every ~5 seconds
+          console.log(`[MindfulFeed YouTube] Accumulating watch time for ${video.videoId}: ${Math.round(video.watchMs / 1000)}s`);
+        }
       }
     }
 
@@ -277,6 +291,9 @@
    * Send update to background service worker
    */
   function pushUpdate(finalize = false) {
+    const allVideos = Array.from(videos.entries());
+    const nonAdVideos = allVideos.filter(([_, v]) => !v.isAd);
+
     const snapshot = {
       sessionId,
       startedAt,
@@ -284,8 +301,7 @@
       currentVideoId,
       pageUrl: location.href,
       platform: 'youtube',
-      videos: Array.from(videos.entries())
-        .filter(([_, v]) => !v.isAd) // Filter out ads
+      videos: nonAdVideos
         .map(([key, v]) => ({
           key,
           videoId: v.videoId,
@@ -300,6 +316,17 @@
         .sort((a, b) => b.watchMs - a.watchMs)
         .slice(0, 40) // Keep top 40 videos
     };
+
+    console.log(`[MindfulFeed YouTube] Pushing update: ${snapshot.videos.length} videos (${allVideos.length} total, ${allVideos.length - nonAdVideos.length} ads filtered), finalize=${finalize}`);
+    if (snapshot.videos.length > 0) {
+      console.log('[MindfulFeed YouTube] Top video:', {
+        videoId: snapshot.videos[0].videoId,
+        title: snapshot.videos[0].title,
+        watchMs: snapshot.videos[0].watchMs
+      });
+    } else {
+      console.log('[MindfulFeed YouTube] No videos tracked yet. Current video:', currentVideoId, 'Tracking:', tracking);
+    }
 
     safeSend({ type: "MFF_RAW_UPDATE", payload: snapshot });
   }
