@@ -352,8 +352,8 @@ async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
 
         console.log(`[MindfulFeed] Combined analysis complete: ${allPosts.length} total posts`);
 
-        // Convert to legacy format for compatibility
-        const breakdown = AI_ANALYSIS.toLegacyFormat(combinedResults);
+        // Convert to legacy format for compatibility (pass actual session duration)
+        const breakdown = AI_ANALYSIS.toLegacyFormat(combinedResults, durationMs);
 
         // Add full analysis for insights
         breakdown.fullAnalysis = combinedResults;
@@ -367,8 +367,8 @@ async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
       // All posts were analyzed incrementally
       console.log(`[MindfulFeed] All posts were analyzed incrementally`);
 
-      // Convert to legacy format for compatibility
-      const breakdown = AI_ANALYSIS.toLegacyFormat(incrementalData.results);
+      // Convert to legacy format for compatibility (pass actual session duration)
+      const breakdown = AI_ANALYSIS.toLegacyFormat(incrementalData.results, durationMs);
 
       // Add full analysis for insights
       breakdown.fullAnalysis = incrementalData.results;
@@ -393,8 +393,8 @@ async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
     // Use AI analysis (with heuristic fallback)
     const analysis = await AI_ANALYSIS.analyzePostsBatch(posts);
 
-    // Convert to legacy format for compatibility
-    const breakdown = AI_ANALYSIS.toLegacyFormat(analysis);
+    // Convert to legacy format for compatibility (pass actual session duration)
+    const breakdown = AI_ANALYSIS.toLegacyFormat(analysis, durationMs);
 
     // Add full analysis for insights
     breakdown.fullAnalysis = analysis;

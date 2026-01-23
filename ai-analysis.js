@@ -661,24 +661,23 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
     for (const post of posts) {
       const caption = (post.caption || '').toLowerCase();
       const dwell = post.dwellMs || 0;
-      const weight = totalTime > 0 ? dwell / totalTime : 0;
 
-      // Topic classification with keyword patterns
+      // Topic classification with keyword patterns (weight by dwell time)
       const topicMatch = classifyTopic(caption);
       if (topicMatch) {
-        topicScores[topicMatch] += weight * dwell;
+        topicScores[topicMatch] += dwell;
       }
 
-      // Emotion detection
+      // Emotion detection (weight by dwell time)
       const emotionMatch = detectEmotion(caption);
       if (emotionMatch) {
-        emotionScores[emotionMatch] += weight * dwell;
+        emotionScores[emotionMatch] += dwell;
       }
 
-      // Engagement quality assessment
+      // Engagement quality assessment (weight by dwell time)
       const engagementMatch = assessEngagement(caption, dwell);
       if (engagementMatch) {
-        engagementScores[engagementMatch] += weight * dwell;
+        engagementScores[engagementMatch] += dwell;
       }
     }
 
@@ -919,9 +918,13 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
 
   /**
    * Convert analysis to legacy format for backward compatibility
+   * @param {Object} analysis - Analysis results with proportions
+   * @param {number} sessionDurationMs - Actual session duration in milliseconds
    */
-  function toLegacyFormat(analysis) {
-    const durationMs = analysis.totalDwellMs;
+  function toLegacyFormat(analysis, sessionDurationMs = null) {
+    // CRITICAL: Use actual session duration, not sum of post dwell times
+    // Post dwell times can overlap (multiple posts visible at once), causing inflated totals
+    const durationMs = sessionDurationMs || analysis.totalDwellMs;
 
     // Map internal categories to the 4 main display categories
     const topics = {
