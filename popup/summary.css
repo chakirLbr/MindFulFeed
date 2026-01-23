@@ -213,15 +213,16 @@ body{
   margin-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
+  max-width: 520px;
 }
 
 .heatmapHeader{
   display: grid;
-  grid-template-columns: 110px repeat(3, 1fr);
-  gap: 6px;
+  grid-template-columns: 100px repeat(3, 1fr);
+  gap: 4px;
   align-items: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: rgba(36,49,58,0.88);
   padding-bottom: 4px;
@@ -239,24 +240,24 @@ body{
 
 .heatmapRow{
   display: grid;
-  grid-template-columns: 110px repeat(3, 1fr);
-  gap: 6px;
+  grid-template-columns: 100px repeat(3, 1fr);
+  gap: 4px;
   align-items: center;
 }
 
 .heatmapTopicLabel{
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
   color: rgba(36,49,58,0.85);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .heatmapCell{
   aspect-ratio: 1;
-  border-radius: 6px;
-  border: 1.5px solid rgba(36,49,58,0.12);
+  border-radius: 4px;
+  border: 1px solid rgba(36,49,58,0.12);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -264,7 +265,8 @@ body{
   gap: 0px;
   transition: all 0.2s ease;
   cursor: help;
-  min-height: 35px;
+  min-height: 22px;
+  max-height: 50px;
 }
 
 .heatmapCell:hover{
@@ -275,14 +277,14 @@ body{
 }
 
 .heatmapCellTime{
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 750;
   color: rgba(36,49,58,0.92);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.1px;
 }
 
 .heatmapCellPercent{
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 600;
   color: rgba(36,49,58,0.62);
 }
@@ -290,38 +292,42 @@ body{
 @media (max-width: 900px){
   .heatmapHeader,
   .heatmapRow{
-    grid-template-columns: 100px repeat(3, 1fr);
+    grid-template-columns: 90px repeat(3, 1fr);
   }
 
   .heatmapCell{
-    min-height: 32px;
+    min-height: 20px;
   }
 
   .heatmapCellTime{
-    font-size: 10px;
+    font-size: 8px;
   }
 
   .heatmapCellPercent{
-    font-size: 8px;
+    font-size: 7px;
   }
 }
 
 @media (max-width: 650px){
   .heatmapHeader,
   .heatmapRow{
-    grid-template-columns: 90px repeat(3, 1fr);
+    grid-template-columns: 80px repeat(3, 1fr);
   }
 
   .heatmapCell{
-    min-height: 30px;
+    min-height: 18px;
   }
 
   .heatmapCellTime{
-    font-size: 10px;
+    font-size: 8px;
+  }
+
+  .heatmapCellPercent{
+    font-size: 7px;
   }
 
   .heatmapTopicLabel{
-    font-size: 11px;
+    font-size: 10px;
   }
 }
 
