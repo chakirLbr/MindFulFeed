@@ -260,73 +260,59 @@ function renderDonut(topicsMs, totalMs, daily) {
   root.innerHTML = "";
 
   const size = 260;
-  const r = 96;
+  const radius = 96;
   const strokeWidth = 18;
+  const circumference = 2 * Math.PI * radius;
 
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
   svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+  svg.setAttribute("style", "transform: rotate(-90deg)");
 
   // Background track
   const track = document.createElementNS(svgNS, "circle");
   track.setAttribute("cx", String(size / 2));
   track.setAttribute("cy", String(size / 2));
-  track.setAttribute("r", String(r));
+  track.setAttribute("r", String(radius));
   track.setAttribute("fill", "none");
   track.setAttribute("stroke", "rgba(36,49,58,0.08)");
   track.setAttribute("stroke-width", String(strokeWidth));
   svg.appendChild(track);
 
-  // Helper function to convert polar to cartesian coordinates
-  function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
-    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
-    return {
-      x: centerX + (radius * Math.cos(angleInRadians)),
-      y: centerY + (radius * Math.sin(angleInRadians))
-    };
-  }
+  // Get the 4 topic values and colors
+  const topicData = TOPICS.map(t => ({
+    key: t.key,
+    value: topicsMs?.[t.key] || 0,
+    color: cssVar(t.colorVar)
+  }));
 
-  // Helper function to create SVG arc path
-  function describeArc(x, y, radius, startAngle, endAngle) {
-    const start = polarToCartesian(x, y, radius, endAngle);
-    const end = polarToCartesian(x, y, radius, startAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-    return [
-      "M", start.x, start.y,
-      "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
-    ].join(" ");
-  }
+  // Calculate percentages
+  const values = topicData.map(t => t.value);
+  const percentages = calculateProperPercentages(values);
 
-  // Calculate segments with proper percentages
-  const centerX = size / 2;
-  const centerY = size / 2;
-  let currentAngle = 0;
+  // Draw each segment as a circle with stroke-dasharray
+  let offset = 0;
 
-  for (const t of TOPICS) {
-    const ms = topicsMs?.[t.key] || 0;
-    if (ms === 0) continue;
+  for (let i = 0; i < topicData.length; i++) {
+    const pct = percentages[i];
+    if (pct === 0) continue;
 
-    let percentage = totalMs > 0 ? (ms / totalMs) * 100 : 0;
+    const segmentLength = (pct / 100) * circumference;
 
-    // Ensure minimum 1% visibility for any non-zero segment
-    if (percentage > 0 && percentage < 1) {
-      percentage = 1;
-    }
+    const circle = document.createElementNS(svgNS, "circle");
+    circle.setAttribute("cx", String(size / 2));
+    circle.setAttribute("cy", String(size / 2));
+    circle.setAttribute("r", String(radius));
+    circle.setAttribute("fill", "none");
+    circle.setAttribute("stroke", topicData[i].color);
+    circle.setAttribute("stroke-width", String(strokeWidth));
+    circle.setAttribute("stroke-dasharray", `${segmentLength} ${circumference}`);
+    circle.setAttribute("stroke-dashoffset", String(-offset));
+    circle.setAttribute("stroke-linecap", "butt");
 
-    const degrees = (percentage / 100) * 360;
-    const endAngle = currentAngle + degrees;
+    svg.appendChild(circle);
 
-    // Create path for this segment
-    const path = document.createElementNS(svgNS, "path");
-    path.setAttribute("d", describeArc(centerX, centerY, r, currentAngle, endAngle));
-    path.setAttribute("fill", "none");
-    path.setAttribute("stroke", cssVar(t.colorVar));
-    path.setAttribute("stroke-width", String(strokeWidth));
-    path.setAttribute("stroke-linecap", "butt");
-
-    svg.appendChild(path);
-
-    currentAngle = endAngle;
+    offset += segmentLength;
   }
 
   // Calculate yesterday comparison
@@ -334,7 +320,7 @@ function renderDonut(topicsMs, totalMs, daily) {
   let comparisonHtml = '';
   if (comparison.hasYesterdayData) {
     const sign = comparison.diffMinutes >= 0 ? '+' : '';
-    const color = comparison.diffMinutes >= 0 ? '#ff3b30' : '#35c759'; // red for more, green for less
+    const color = comparison.diffMinutes >= 0 ? '#ff3b30' : '#35c759';
     comparisonHtml = `<div class="donutComparison" style="color: ${color}">${sign}${comparison.diffMinutes} min vs yesterday</div>`;
   }
 
