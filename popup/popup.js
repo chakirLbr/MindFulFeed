@@ -33,14 +33,18 @@ function send(type) {
 }
 
 function formatTime(ms) {
-  const totalMinutes = Math.floor(ms / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
+  } else if (minutes > 0) {
+    return `${minutes}m`;
+  } else {
+    return `${seconds}s`;
   }
-  return `${minutes}m`;
 }
 
 function formatTimeShort(ms) {
@@ -145,8 +149,8 @@ async function updateUI() {
     return;
   }
 
-  const { isTracking, elapsedMs } = stateRes;
-  const { state } = stateRes;
+  const { state, elapsedMs } = stateRes;
+  const { isTracking } = state;
 
   // Update monitoring status
   if (isTracking) {
