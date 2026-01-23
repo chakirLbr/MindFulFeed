@@ -10,7 +10,7 @@
   let sessionId = null;
   let startedAt = 0;
 
-  /** @type {Map<string, {title: string, channel: string, videoId: string, firstSeenAt: number, watchMs: number, isAd: boolean}>} */
+  /** @type {Map<string, {title: string, channel: string, videoId: string, description: string, thumbnail: string, transcript: string, firstSeenAt: number, watchMs: number, isAd: boolean}>} */
   const videos = new Map();
 
   /** @type {string|null} Current video being watched */
@@ -53,7 +53,7 @@
   }
 
   /**
-   * Get video metadata
+   * Get video metadata including description, thumbnail, and transcript
    */
   function getVideoMetadata() {
     const videoId = getVideoIdFromUrl();
@@ -77,11 +77,79 @@
       channel = channelEl.textContent?.trim() || '';
     }
 
+    // Video description
+    let description = '';
+    const descriptionEl = document.querySelector('ytd-text-inline-expander#description yt-attributed-string span') ||
+                         document.querySelector('#description yt-formatted-string') ||
+                         document.querySelector('#description-inline-expander yt-formatted-string');
+    if (descriptionEl) {
+      description = descriptionEl.textContent?.trim() || '';
+    }
+
+    // Video thumbnail (high quality)
+    let thumbnail = '';
+    // Try to get from meta tags first (higher quality)
+    const metaThumb = document.querySelector('meta[property="og:image"]');
+    if (metaThumb) {
+      thumbnail = metaThumb.getAttribute('content') || '';
+    }
+    // Fallback to standard YouTube thumbnail URL
+    if (!thumbnail && videoId) {
+      thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
+
     // Check if it's an ad
     const isAd = document.querySelector('.ytp-ad-player-overlay') !== null ||
                  document.querySelector('.video-ads') !== null;
 
-    return { videoId, title, channel, isAd };
+    return { videoId, title, channel, description, thumbnail, isAd };
+  }
+
+  /**
+   * Extract video transcript/captions (asynchronous)
+   * Returns a promise that resolves to transcript text or empty string
+   */
+  async function extractTranscript(videoId) {
+    try {
+      // Check if transcript button exists
+      const transcriptButton = document.querySelector('button[aria-label*="transcript" i], button[aria-label*="Show transcript" i]');
+
+      if (!transcriptButton) {
+        console.log('[MindfulFeed YouTube] No transcript available for video:', videoId);
+        return '';
+      }
+
+      // Open transcript panel if not already open
+      const transcriptPanel = document.querySelector('ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]');
+      if (!transcriptPanel || transcriptPanel.getAttribute('visibility') === 'ENGAGEMENT_PANEL_VISIBILITY_HIDDEN') {
+        transcriptButton.click();
+        // Wait for panel to open
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // Extract transcript segments
+      const segments = document.querySelectorAll('ytd-transcript-segment-renderer');
+      if (!segments || segments.length === 0) {
+        console.log('[MindfulFeed YouTube] Transcript panel opened but no segments found');
+        return '';
+      }
+
+      // Combine all text segments
+      const transcriptText = Array.from(segments)
+        .map(seg => {
+          const textEl = seg.querySelector('yt-formatted-string.segment-text');
+          return textEl ? textEl.textContent?.trim() : '';
+        })
+        .filter(text => text.length > 0)
+        .join(' ');
+
+      console.log(`[MindfulFeed YouTube] Extracted transcript (${transcriptText.length} chars) for video:`, videoId);
+      return transcriptText;
+
+    } catch (error) {
+      console.error('[MindfulFeed YouTube] Error extracting transcript:', error);
+      return '';
+    }
   }
 
   /**
@@ -112,16 +180,34 @@
         videoId: metadata.videoId,
         title: metadata.title,
         channel: metadata.channel,
+        description: metadata.description || '',
+        thumbnail: metadata.thumbnail || '',
+        transcript: '', // Will be extracted asynchronously
         isAd: metadata.isAd,
         firstSeenAt: now(),
         watchMs: 0
       });
+
+      // Extract transcript asynchronously (don't block)
+      if (metadata.videoId && !metadata.isAd) {
+        extractTranscript(metadata.videoId).then(transcript => {
+          const video = videos.get(key);
+          if (video) {
+            video.transcript = transcript;
+            console.log(`[MindfulFeed YouTube] Transcript stored for ${key}:`, transcript.substring(0, 100) + '...');
+          }
+        }).catch(err => {
+          console.error('[MindfulFeed YouTube] Failed to extract transcript:', err);
+        });
+      }
     } else {
       // Update metadata if it was incomplete before
       const v = videos.get(key);
       if (v && (!v.title || v.title.length < 5)) {
         v.title = metadata.title;
         v.channel = metadata.channel;
+        v.description = metadata.description || v.description;
+        v.thumbnail = metadata.thumbnail || v.thumbnail;
       }
     }
     return key;
@@ -205,6 +291,9 @@
           videoId: v.videoId,
           title: v.title,
           channel: v.channel,
+          description: v.description,
+          thumbnail: v.thumbnail,
+          transcript: v.transcript,
           firstSeenAt: v.firstSeenAt,
           watchMs: v.watchMs
         }))

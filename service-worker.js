@@ -269,9 +269,18 @@ async function setSessionCounts(counts) {
 
 async function ensureInjected(tabId) {
   // If the tab existed before the extension was loaded, declared content_scripts won't be injected.
-  // Force-inject (safe to call multiple times).
+  // Force-inject appropriate script based on tab URL (safe to call multiple times).
   try {
-    await chrome.scripting.executeScript({ target: { tabId }, files: ["foreground.js"] });
+    // Get tab info to determine which script to inject
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab || !tab.url) return;
+
+    const url = new URL(tab.url);
+    if (url.hostname === "www.youtube.com" || url.hostname === "youtube.com") {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["foreground-youtube.js"] });
+    } else if (url.hostname === "www.instagram.com" || url.hostname === "instagram.com") {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["foreground.js"] });
+    }
   } catch (_) {
     // ignore (e.g., tab not accessible)
   }
@@ -327,14 +336,74 @@ function generateSessionBreakdownDemo(durationMs, endedAtMs) {
   return { topicMs, emotionMs, perTopicEmotions };
 }
 
+/**
+ * Transform YouTube videos to a format compatible with AI analysis
+ * Combines title, description, and transcript into a single caption
+ */
+function transformYouTubeDataForAnalysis(videos) {
+  return videos.map(video => {
+    // Combine title, description, and transcript into a comprehensive caption
+    const parts = [];
+
+    if (video.title) {
+      parts.push(`Title: ${video.title}`);
+    }
+
+    if (video.description) {
+      // Limit description to first 500 chars to avoid overwhelming the AI
+      const desc = video.description.length > 500
+        ? video.description.substring(0, 500) + '...'
+        : video.description;
+      parts.push(`Description: ${desc}`);
+    }
+
+    if (video.transcript) {
+      // Limit transcript to first 1000 chars
+      const trans = video.transcript.length > 1000
+        ? video.transcript.substring(0, 1000) + '...'
+        : video.transcript;
+      parts.push(`Transcript: ${trans}`);
+    }
+
+    const caption = parts.join('\n\n');
+
+    return {
+      key: video.key || video.videoId,
+      href: `https://www.youtube.com/watch?v=${video.videoId}`,
+      caption: caption,
+      dwellMs: video.watchMs,
+      // Include thumbnail for potential multimodal analysis
+      imageUrl: video.thumbnail,
+      // Include original video data for reference
+      videoMetadata: {
+        videoId: video.videoId,
+        title: video.title,
+        channel: video.channel,
+        description: video.description,
+        thumbnail: video.thumbnail
+      }
+    };
+  });
+}
+
 // AI-powered analysis with fallback to heuristics
 async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
   try {
+    // Determine platform and transform data if needed
+    const platform = raw?.platform || 'instagram';
+    let postsToAnalyze = raw?.posts || [];
+
+    if (platform === 'youtube' && raw?.videos) {
+      // YouTube session: use videos instead of posts
+      console.log(`[MindfulFeed] YouTube session detected, transforming ${raw.videos.length} videos for analysis`);
+      postsToAnalyze = transformYouTubeDataForAnalysis(raw.videos);
+    }
+
     // Check if we have incremental analysis results
     const incrementalData = await getIncrementalAnalysis();
 
     if (incrementalData.results && incrementalData.analyzedPosts.length > 0) {
-      const allPosts = raw?.posts || [];
+      const allPosts = postsToAnalyze;
       console.log(`[MindfulFeed] Using incremental analysis results (${incrementalData.analyzedPosts.length} posts analyzed)`);
 
       // Check if there are any posts that weren't analyzed incrementally
@@ -380,18 +449,16 @@ async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
     }
 
     // No incremental results - analyze now (fallback for when incremental analysis didn't run)
-    const posts = raw?.posts || [];
-
-    if (posts.length === 0) {
+    if (postsToAnalyze.length === 0) {
       // No posts tracked - use demo data
       console.log('[MindfulFeed] No posts found, using demo breakdown');
       return generateSessionBreakdownDemo(durationMs, endedAtMs);
     }
 
-    console.log(`[MindfulFeed] No incremental results, analyzing ${posts.length} posts now...`);
+    console.log(`[MindfulFeed] No incremental results, analyzing ${postsToAnalyze.length} items now...`);
 
     // Use AI analysis (with heuristic fallback)
-    const analysis = await AI_ANALYSIS.analyzePostsBatch(posts);
+    const analysis = await AI_ANALYSIS.analyzePostsBatch(postsToAnalyze);
 
     // Convert to legacy format for compatibility (pass actual session duration)
     const breakdown = AI_ANALYSIS.toLegacyFormat(analysis, durationMs);
@@ -547,16 +614,20 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
 
   // Read raw session snapshot (best-effort)
   const raw = await getRawSession();
-  const postCount = raw?.posts?.length || 0;
+  const platform = raw?.platform || 'instagram';
+  const itemCount = platform === 'youtube'
+    ? (raw?.videos?.length || 0)
+    : (raw?.posts?.length || 0);
+  const itemType = platform === 'youtube' ? 'videos' : 'posts';
 
-  console.log(`[MindfulFeed] Analyzing ${postCount} posts...`);
+  console.log(`[MindfulFeed] Analyzing ${itemCount} ${itemType}...`);
 
   // Update status
   await setProcessingStatus({
     isProcessing: true,
-    step: `Analyzing ${postCount} posts with AI...`,
+    step: `Analyzing ${itemCount} ${itemType} with AI...`,
     progress: 30,
-    postCount,
+    itemCount,
     startedAt: Date.now()
   });
 
