@@ -190,6 +190,35 @@ function safePercent(value, total) {
   return Math.round((value / total) * 100);
 }
 
+// Calculate percentages that properly sum to 100%
+function calculateProperPercentages(values) {
+  const total = values.reduce((sum, val) => sum + val, 0);
+  if (total === 0) return values.map(() => 0);
+
+  // Calculate exact percentages
+  const exactPercentages = values.map(val => (val / total) * 100);
+
+  // Round down first
+  const rounded = exactPercentages.map(Math.floor);
+
+  // Calculate remainder
+  let remainingPercent = 100 - rounded.reduce((sum, val) => sum + val, 0);
+
+  // Distribute remainder to values with largest fractional parts
+  const fractionalParts = exactPercentages.map((val, idx) => ({
+    index: idx,
+    fraction: val - Math.floor(val)
+  }));
+
+  fractionalParts.sort((a, b) => b.fraction - a.fraction);
+
+  for (let i = 0; i < remainingPercent; i++) {
+    rounded[fractionalParts[i].index]++;
+  }
+
+  return rounded;
+}
+
 function isoDate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -208,21 +237,25 @@ function renderTopicLegend(topicsMs, totalMs) {
   const el = document.getElementById("topicLegend");
   el.innerHTML = "";
 
-  for (const t of TOPICS) {
-    const ms = topicsMs?.[t.key] || 0;
-    const pct = safePercent(ms, totalMs);
+  // Get values in order and calculate proper percentages
+  const values = TOPICS.map(t => topicsMs?.[t.key] || 0);
+  const percentages = calculateProperPercentages(values);
+
+  for (let i = 0; i < TOPICS.length; i++) {
+    const t = TOPICS[i];
+    const pct = percentages[i];
     const item = document.createElement("div");
     item.className = "legendItem";
     item.innerHTML = `
       <span class="legendDot" style="background:${cssVar(t.colorVar)}"></span>
       <span style="min-width:92px">${t.key}</span>
-      <span style="color: rgba(36,49,58,0.6)">${pct}%</span>
+      <span style="color: rgba(36,49,58,0.6)">${pct}% of time</span>
     `;
     el.appendChild(item);
   }
 }
 
-function renderDonut(topicsMs, totalMs) {
+function renderDonut(topicsMs, totalMs, daily) {
   const root = document.getElementById("topicDonut");
   root.innerHTML = "";
 
@@ -265,9 +298,21 @@ function renderDonut(topicsMs, totalMs) {
     offset += len;
   }
 
+  // Calculate yesterday comparison
+  const comparison = calculateYesterdayComparison(daily);
+  let comparisonHtml = '';
+  if (comparison.hasYesterdayData) {
+    const sign = comparison.diffMinutes >= 0 ? '+' : '';
+    const color = comparison.diffMinutes >= 0 ? '#ff3b30' : '#35c759'; // red for more, green for less
+    comparisonHtml = `<div class="donutComparison" style="color: ${color}">${sign}${comparison.diffMinutes} min vs yesterday</div>`;
+  }
+
   const center = document.createElement("div");
   center.className = "donutCenter";
-  center.innerHTML = `<div class="donutTime">${formatHMS(totalMs)}</div>`;
+  center.innerHTML = `
+    <div class="donutTime">${formatHMS(totalMs)}</div>
+    ${comparisonHtml}
+  `;
 
   root.appendChild(svg);
   root.appendChild(center);
@@ -277,9 +322,14 @@ function renderEmotionList(emotionsMs, totalMs) {
   const el = document.getElementById("emoList");
   el.innerHTML = "";
 
-  for (const e of EMOTIONS) {
-    const ms = emotionsMs?.[e.key] || 0;
-    const pct = safePercent(ms, totalMs);
+  // Get values in order and calculate proper percentages
+  const values = EMOTIONS.map(e => emotionsMs?.[e.key] || 0);
+  const percentages = calculateProperPercentages(values);
+
+  for (let i = 0; i < EMOTIONS.length; i++) {
+    const e = EMOTIONS[i];
+    const ms = values[i];
+    const pct = percentages[i];
 
     const row = document.createElement("div");
     row.className = "emoRow";
@@ -320,7 +370,7 @@ function renderEmotionList(emotionsMs, totalMs) {
 
     const pctEl = document.createElement("div");
     pctEl.className = "miniPct";
-    pctEl.textContent = `${pct}%`;
+    pctEl.textContent = `${pct}% of time`;
 
     const timeEl = document.createElement("div");
     timeEl.className = "miniTime";
@@ -395,10 +445,11 @@ function renderEmotionBarCard(topic, perTopicEmotions) {
   const light = perTopicEmotions?.Light || 0;
   const neutral = perTopicEmotions?.Neutral || 0;
 
-  // Calculate percentages
-  const heavyPct = safePercent(heavy, total);
-  const lightPct = safePercent(light, total);
-  const neutralPct = safePercent(neutral, total);
+  // Calculate proper percentages that sum to 100%
+  const percentages = calculateProperPercentages([heavy, light, neutral]);
+  const heavyPct = percentages[0];
+  const lightPct = percentages[1];
+  const neutralPct = percentages[2];
 
   // Get topic color and icon
   const topicData = TOPICS.find(t => t.key === topic);
@@ -455,6 +506,108 @@ function renderEmotionBarCard(topic, perTopicEmotions) {
   `;
 
   return card;
+}
+
+// Render heatmap matrix visualization
+function renderHeatmap(perTopicEmotions, totalMs) {
+  const container = document.getElementById('heatmapMatrix');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  // Calculate max value for color intensity scaling
+  let maxMs = 0;
+  for (const topic of TOPICS) {
+    for (const emotion of EMOTIONS) {
+      const ms = perTopicEmotions?.[topic.key]?.[emotion.key] || 0;
+      maxMs = Math.max(maxMs, ms);
+    }
+  }
+
+  // Create heatmap header
+  const header = document.createElement('div');
+  header.className = 'heatmapHeader';
+  header.innerHTML = '<div class="heatmapCorner"></div>';
+
+  for (const emotion of EMOTIONS) {
+    const emotionHeader = document.createElement('div');
+    emotionHeader.className = 'heatmapEmotionHeader';
+    emotionHeader.textContent = emotion.key;
+    emotionHeader.style.color = cssVar(emotion.colorVar);
+    header.appendChild(emotionHeader);
+  }
+  container.appendChild(header);
+
+  // Create heatmap rows
+  for (const topic of TOPICS) {
+    const row = document.createElement('div');
+    row.className = 'heatmapRow';
+
+    // Topic label
+    const label = document.createElement('div');
+    label.className = 'heatmapTopicLabel';
+    label.innerHTML = `<span style="color: ${cssVar(topic.colorVar)}">${getTopicIcon(topic.key)}</span> ${topic.key}`;
+    row.appendChild(label);
+
+    // Emotion cells
+    for (const emotion of EMOTIONS) {
+      const ms = perTopicEmotions?.[topic.key]?.[emotion.key] || 0;
+      const cell = document.createElement('div');
+      cell.className = 'heatmapCell';
+
+      // Calculate intensity (0-1) for color opacity
+      const intensity = maxMs > 0 ? ms / maxMs : 0;
+      const baseColor = cssVar(emotion.colorVar);
+
+      // Convert hex to rgba with opacity
+      const r = parseInt(baseColor.slice(1, 3), 16);
+      const g = parseInt(baseColor.slice(3, 5), 16);
+      const b = parseInt(baseColor.slice(5, 7), 16);
+      const alpha = 0.15 + (intensity * 0.85); // Min 15%, max 100%
+
+      cell.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      cell.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.3)`;
+
+      // Cell content
+      const timeText = formatMSShort(ms);
+      const percentage = totalMs > 0 ? Math.round((ms / totalMs) * 100) : 0;
+
+      cell.innerHTML = `
+        <div class="heatmapCellTime">${timeText}</div>
+        <div class="heatmapCellPercent">${percentage}%</div>
+      `;
+
+      cell.title = `${topic.key} - ${emotion.key}: ${timeText} (${percentage}% of total)`;
+
+      row.appendChild(cell);
+    }
+
+    container.appendChild(row);
+  }
+}
+
+// Calculate yesterday comparison
+function calculateYesterdayComparison(daily) {
+  const today = new Date();
+  const todayKey = isoDate(today);
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = isoDate(yesterday);
+
+  const todayMs = daily[todayKey]?.totalMs || 0;
+  const yesterdayMs = daily[yesterdayKey]?.totalMs || 0;
+
+  const diffMs = todayMs - yesterdayMs;
+  const diffMinutes = Math.round(diffMs / 60000);
+
+  return {
+    todayMs,
+    yesterdayMs,
+    diffMs,
+    diffMinutes,
+    hasYesterdayData: yesterdayMs > 0
+  };
 }
 
 function lastNDays(n) {
@@ -554,21 +707,42 @@ async function loadDashboard() {
     Neutral: totalMs - Math.round(totalMs * 0.35) - Math.round(totalMs * 0.45)
   };
 
-  renderDonut(topicsMs, totalMs);
+  renderDonut(topicsMs, totalMs, daily);
   renderTopicLegend(topicsMs, totalMs);
   renderEmotionList(emotionsMs, totalMs);
 
   renderStatsLegend();
   renderStatsForPeriod(currentPeriod);
 
+  // Render heatmap matrix
+  const perTopicEmotions = (today.totalMs > 0) ? today.perTopicEmotions : {
+    Educational: {
+      Heavy: Math.round((topicsMs.Educational || 0) * 0.33),
+      Light: Math.round((topicsMs.Educational || 0) * 0.34),
+      Neutral: (topicsMs.Educational || 0) - Math.round((topicsMs.Educational || 0) * 0.33) - Math.round((topicsMs.Educational || 0) * 0.34)
+    },
+    Entertainment: {
+      Heavy: Math.round((topicsMs.Entertainment || 0) * 0.33),
+      Light: Math.round((topicsMs.Entertainment || 0) * 0.34),
+      Neutral: (topicsMs.Entertainment || 0) - Math.round((topicsMs.Entertainment || 0) * 0.33) - Math.round((topicsMs.Entertainment || 0) * 0.34)
+    },
+    Social: {
+      Heavy: Math.round((topicsMs.Social || 0) * 0.33),
+      Light: Math.round((topicsMs.Social || 0) * 0.34),
+      Neutral: (topicsMs.Social || 0) - Math.round((topicsMs.Social || 0) * 0.33) - Math.round((topicsMs.Social || 0) * 0.34)
+    },
+    Informative: {
+      Heavy: Math.round((topicsMs.Informative || 0) * 0.33),
+      Light: Math.round((topicsMs.Informative || 0) * 0.34),
+      Neutral: (topicsMs.Informative || 0) - Math.round((topicsMs.Informative || 0) * 0.33) - Math.round((topicsMs.Informative || 0) * 0.34)
+    }
+  };
+  renderHeatmap(perTopicEmotions, totalMs);
+
   const gauges = document.getElementById("gauges");
   gauges.innerHTML = "";
   for (const t of TOPICS) {
-    const per = (today.totalMs > 0) ? today.perTopicEmotions?.[t.key] : {
-      Heavy: Math.round((topicsMs[t.key] || 0) * 0.33),
-      Light: Math.round((topicsMs[t.key] || 0) * 0.34),
-      Neutral: (topicsMs[t.key] || 0) - Math.round((topicsMs[t.key] || 0) * 0.33) - Math.round((topicsMs[t.key] || 0) * 0.34)
-    };
+    const per = perTopicEmotions[t.key];
     gauges.appendChild(renderEmotionBarCard(t.key, per));
   }
 

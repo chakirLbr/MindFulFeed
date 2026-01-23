@@ -432,11 +432,11 @@ async function start() {
   sessionCounts[todayKey] = (sessionCounts[todayKey] || 0) + 1;
   await setSessionCounts(sessionCounts);
 
-  // Clear session history and incremental analysis when starting a new session (fresh start)
+  // Clear only incremental analysis when starting a new session (keep session history)
   console.clear(); // Clear console logs
   console.log('[Service Worker] ===== NEW SESSION STARTED =====');
-  console.log('[Service Worker] Clearing session history and incremental analysis for fresh start');
-  await chrome.storage.local.remove([SESSION_HISTORY_KEY, INCREMENTAL_ANALYSIS_KEY]);
+  console.log('[Service Worker] Clearing incremental analysis for fresh start (keeping session history)');
+  await chrome.storage.local.remove([INCREMENTAL_ANALYSIS_KEY]);
 
   await setSessionMeta({
     sessionId: sid,

@@ -191,6 +191,136 @@ body{
 .barSeg{ height: 100%; }
 .barSeg + .barSeg{ box-shadow: inset 2px 0 0 rgba(255,255,255,0.8); }
 
+/* Heatmap Matrix */
+.heatmapCard{
+  margin-bottom: 14px;
+}
+
+.heatmapSubtitle{
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.heatmapContainer{
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.heatmapHeader{
+  display: grid;
+  grid-template-columns: 140px repeat(3, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(36,49,58,0.88);
+  padding-bottom: 6px;
+  border-bottom: 2px solid rgba(36,49,58,0.12);
+}
+
+.heatmapCorner{
+  /* Empty cell in top-left corner */
+}
+
+.heatmapEmotionHeader{
+  text-align: center;
+  font-weight: 750;
+}
+
+.heatmapRow{
+  display: grid;
+  grid-template-columns: 140px repeat(3, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.heatmapTopicLabel{
+  font-size: 13px;
+  font-weight: 650;
+  color: rgba(36,49,58,0.85);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.heatmapCell{
+  aspect-ratio: 1;
+  border-radius: 10px;
+  border: 2px solid rgba(36,49,58,0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  transition: all 0.2s ease;
+  cursor: help;
+  min-height: 70px;
+}
+
+.heatmapCell:hover{
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(36,49,58,0.2);
+  z-index: 10;
+}
+
+.heatmapCellTime{
+  font-size: 15px;
+  font-weight: 750;
+  color: rgba(36,49,58,0.92);
+}
+
+.heatmapCellPercent{
+  font-size: 11px;
+  font-weight: 650;
+  color: rgba(36,49,58,0.65);
+}
+
+@media (max-width: 900px){
+  .heatmapHeader,
+  .heatmapRow{
+    grid-template-columns: 120px repeat(3, 1fr);
+  }
+
+  .heatmapCell{
+    min-height: 60px;
+  }
+
+  .heatmapCellTime{
+    font-size: 13px;
+  }
+
+  .heatmapCellPercent{
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 650px){
+  .heatmapHeader,
+  .heatmapRow{
+    grid-template-columns: 100px repeat(3, 1fr);
+  }
+
+  .heatmapCell{
+    min-height: 50px;
+  }
+
+  .heatmapTopicLabel{
+    font-size: 11px;
+  }
+}
+
+/* Donut comparison text */
+.donutComparison{
+  font-size: 12px;
+  font-weight: 650;
+  margin-top: 4px;
+  letter-spacing: 0.2px;
+}
+
 /* Emotion Bar Cards */
 .gridBottom{
   margin-top: 14px;
