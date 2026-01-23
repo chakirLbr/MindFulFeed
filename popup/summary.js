@@ -318,9 +318,17 @@ function renderDonut(topicsMs, totalMs, daily) {
   root.appendChild(center);
 }
 
-function renderEmotionList(emotionsMs, totalMs) {
+function renderEmotionList(emotionsMs, totalMs, daily) {
   const el = document.getElementById("emoList");
   el.innerHTML = "";
+
+  // Get yesterday's data for comparison
+  const today = new Date();
+  const todayKey = isoDate(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayKey = isoDate(yesterday);
+  const yesterdayEmotions = daily?.[yesterdayKey]?.emotions || {};
 
   // Get values in order and calculate proper percentages
   const values = EMOTIONS.map(e => emotionsMs?.[e.key] || 0);
@@ -384,6 +392,21 @@ function renderEmotionList(emotionsMs, totalMs) {
     label.appendChild(pctEl);
     label.appendChild(timeEl);
     label.appendChild(descEl);
+
+    // Add yesterday comparison for this emotion
+    const yesterdayMs = yesterdayEmotions[e.key] || 0;
+    if (yesterdayMs > 0) {
+      const diffMs = ms - yesterdayMs;
+      const diffMinutes = Math.round(diffMs / 60000);
+      const sign = diffMinutes >= 0 ? '+' : '';
+      const color = diffMinutes >= 0 ? '#ff3b30' : '#35c759'; // red for more, green for less
+
+      const comparisonEl = document.createElement("div");
+      comparisonEl.className = "miniComparison";
+      comparisonEl.style.color = color;
+      comparisonEl.textContent = `${sign}${diffMinutes} min vs yesterday`;
+      label.appendChild(comparisonEl);
+    }
 
     row.appendChild(ring);
     row.appendChild(label);
@@ -709,7 +732,7 @@ async function loadDashboard() {
 
   renderDonut(topicsMs, totalMs, daily);
   renderTopicLegend(topicsMs, totalMs);
-  renderEmotionList(emotionsMs, totalMs);
+  renderEmotionList(emotionsMs, totalMs, daily);
 
   renderStatsLegend();
   renderStatsForPeriod(currentPeriod);
