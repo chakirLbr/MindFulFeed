@@ -262,7 +262,6 @@ function renderDonut(topicsMs, totalMs, daily) {
   const size = 260;
   const r = 96;
   const strokeWidth = 18;
-  const c = 2 * Math.PI * r;
 
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
@@ -278,47 +277,55 @@ function renderDonut(topicsMs, totalMs, daily) {
   track.setAttribute("stroke-width", String(strokeWidth));
   svg.appendChild(track);
 
-  // Calculate all segment lengths and ensure they're visible
-  const segments = [];
-  for (const t of TOPICS) {
-    const ms = topicsMs?.[t.key] || 0;
-    const frac = totalMs > 0 ? ms / totalMs : 0;
-    let len = frac * c;
-
-    // Ensure minimum visibility for any non-zero segment (at least 1% of circumference)
-    if (ms > 0 && len < c * 0.01) {
-      len = c * 0.01;
-    }
-
-    // Include all segments with any time spent
-    if (ms > 0) {
-      segments.push({ topic: t, length: len, ms: ms, frac: frac });
-    }
+  // Helper function to convert polar to cartesian coordinates
+  function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+      x: centerX + (radius * Math.cos(angleInRadians)),
+      y: centerY + (radius * Math.sin(angleInRadians))
+    };
   }
 
-  // Render segments with proper offsets
-  let cumulativeOffset = 0;
-  for (const segment of segments) {
-    const seg = document.createElementNS(svgNS, "circle");
-    seg.setAttribute("cx", String(size / 2));
-    seg.setAttribute("cy", String(size / 2));
-    seg.setAttribute("r", String(r));
-    seg.setAttribute("fill", "none");
-    seg.setAttribute("stroke", cssVar(segment.topic.colorVar));
-    seg.setAttribute("stroke-width", String(strokeWidth));
-    seg.setAttribute("stroke-linecap", "butt");
+  // Helper function to create SVG arc path
+  function describeArc(x, y, radius, startAngle, endAngle) {
+    const start = polarToCartesian(x, y, radius, endAngle);
+    const end = polarToCartesian(x, y, radius, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+    return [
+      "M", start.x, start.y,
+      "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
+    ].join(" ");
+  }
 
-    // Set dasharray: segment length followed by gap
-    seg.setAttribute("stroke-dasharray", `${segment.length} ${c - segment.length}`);
+  // Calculate segments with proper percentages
+  const center = size / 2;
+  let currentAngle = 0;
 
-    // Set dashoffset to position this segment after previous ones
-    // Rotate 90 degrees counterclockwise to start at top
-    const rotationOffset = c / 4;
-    seg.setAttribute("stroke-dashoffset", String(rotationOffset - cumulativeOffset));
+  for (const t of TOPICS) {
+    const ms = topicsMs?.[t.key] || 0;
+    if (ms === 0) continue;
 
-    svg.appendChild(seg);
+    let percentage = totalMs > 0 ? (ms / totalMs) * 100 : 0;
 
-    cumulativeOffset += segment.length;
+    // Ensure minimum 1% visibility for any non-zero segment
+    if (percentage > 0 && percentage < 1) {
+      percentage = 1;
+    }
+
+    const degrees = (percentage / 100) * 360;
+    const endAngle = currentAngle + degrees;
+
+    // Create path for this segment
+    const path = document.createElementNS(svgNS, "path");
+    path.setAttribute("d", describeArc(center, center, r, currentAngle, endAngle));
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", cssVar(t.colorVar));
+    path.setAttribute("stroke-width", String(strokeWidth));
+    path.setAttribute("stroke-linecap", "butt");
+
+    svg.appendChild(path);
+
+    currentAngle = endAngle;
   }
 
   // Calculate yesterday comparison
