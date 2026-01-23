@@ -7,8 +7,8 @@ const TOPICS = [
 
 const EMOTIONS = [
   { key: "Heavy", colorVar: "--e-heavy", desc: "Content with heavy emotions" },
-  { key: "Light", colorVar: "--e-light", desc: "Content with light emotions" },
-  { key: "Neutral", colorVar: "--e-neutral", desc: "Neutral content" }
+  { key: "Neutral", colorVar: "--e-neutral", desc: "Neutral content" },
+  { key: "Light", colorVar: "--e-light", desc: "Content with light emotions" }
 ];
 
 // Processing status helpers

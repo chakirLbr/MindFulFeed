@@ -213,14 +213,14 @@ body{
   margin-top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   max-width: 520px;
 }
 
 .heatmapHeader{
   display: grid;
   grid-template-columns: 100px repeat(3, 1fr);
-  gap: 4px;
+  gap: 2px;
   align-items: center;
   font-size: 10px;
   font-weight: 700;
@@ -241,7 +241,7 @@ body{
 .heatmapRow{
   display: grid;
   grid-template-columns: 100px repeat(3, 1fr);
-  gap: 4px;
+  gap: 2px;
   align-items: center;
 }
 
@@ -265,8 +265,8 @@ body{
   gap: 0px;
   transition: all 0.2s ease;
   cursor: help;
-  min-height: 22px;
-  max-height: 50px;
+  min-height: 24px;
+  max-height: 55px;
 }
 
 .heatmapCell:hover{
@@ -293,10 +293,11 @@ body{
   .heatmapHeader,
   .heatmapRow{
     grid-template-columns: 90px repeat(3, 1fr);
+    gap: 2px;
   }
 
   .heatmapCell{
-    min-height: 20px;
+    min-height: 22px;
   }
 
   .heatmapCellTime{
@@ -312,10 +313,11 @@ body{
   .heatmapHeader,
   .heatmapRow{
     grid-template-columns: 80px repeat(3, 1fr);
+    gap: 2px;
   }
 
   .heatmapCell{
-    min-height: 18px;
+    min-height: 20px;
   }
 
   .heatmapCellTime{
