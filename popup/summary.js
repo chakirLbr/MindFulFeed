@@ -278,13 +278,20 @@ function renderDonut(topicsMs, totalMs, daily) {
   track.setAttribute("stroke-width", String(strokeWidth));
   svg.appendChild(track);
 
-  // Calculate all segment lengths first
+  // Calculate all segment lengths and ensure they're visible
   const segments = [];
   for (const t of TOPICS) {
     const ms = topicsMs?.[t.key] || 0;
     const frac = totalMs > 0 ? ms / totalMs : 0;
-    const len = frac * c;
-    if (len > 0.5) { // Only include segments with visible length
+    let len = frac * c;
+
+    // Ensure minimum visibility for any non-zero segment (at least 1% of circumference)
+    if (ms > 0 && len < c * 0.01) {
+      len = c * 0.01;
+    }
+
+    // Include all segments with any time spent
+    if (ms > 0) {
       segments.push({ topic: t, length: len, ms: ms, frac: frac });
     }
   }
@@ -299,13 +306,15 @@ function renderDonut(topicsMs, totalMs, daily) {
     seg.setAttribute("fill", "none");
     seg.setAttribute("stroke", cssVar(segment.topic.colorVar));
     seg.setAttribute("stroke-width", String(strokeWidth));
-    seg.setAttribute("stroke-linecap", "butt"); // Use butt to avoid overlap issues
+    seg.setAttribute("stroke-linecap", "butt");
 
     // Set dasharray: segment length followed by gap
     seg.setAttribute("stroke-dasharray", `${segment.length} ${c - segment.length}`);
 
     // Set dashoffset to position this segment after previous ones
-    seg.setAttribute("stroke-dashoffset", String(-cumulativeOffset));
+    // Rotate 90 degrees counterclockwise to start at top
+    const rotationOffset = c / 4;
+    seg.setAttribute("stroke-dashoffset", String(rotationOffset - cumulativeOffset));
 
     svg.appendChild(seg);
 
