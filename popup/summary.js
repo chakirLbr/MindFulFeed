@@ -261,41 +261,55 @@ function renderDonut(topicsMs, totalMs, daily) {
 
   const size = 260;
   const r = 96;
+  const strokeWidth = 18;
   const c = 2 * Math.PI * r;
 
   const svgNS = "http://www.w3.org/2000/svg";
   const svg = document.createElementNS(svgNS, "svg");
   svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
 
+  // Background track
   const track = document.createElementNS(svgNS, "circle");
   track.setAttribute("cx", String(size / 2));
   track.setAttribute("cy", String(size / 2));
   track.setAttribute("r", String(r));
   track.setAttribute("fill", "none");
   track.setAttribute("stroke", "rgba(36,49,58,0.08)");
-  track.setAttribute("stroke-width", "18");
+  track.setAttribute("stroke-width", String(strokeWidth));
   svg.appendChild(track);
 
-  let offset = 0;
+  // Calculate all segment lengths first
+  const segments = [];
   for (const t of TOPICS) {
     const ms = topicsMs?.[t.key] || 0;
-    const frac = totalMs ? ms / totalMs : 0;
-    const len = Math.max(0, frac * c);
-    if (len <= 0) continue;
+    const frac = totalMs > 0 ? ms / totalMs : 0;
+    const len = frac * c;
+    if (len > 0.5) { // Only include segments with visible length
+      segments.push({ topic: t, length: len, ms: ms, frac: frac });
+    }
+  }
 
+  // Render segments with proper offsets
+  let cumulativeOffset = 0;
+  for (const segment of segments) {
     const seg = document.createElementNS(svgNS, "circle");
     seg.setAttribute("cx", String(size / 2));
     seg.setAttribute("cy", String(size / 2));
     seg.setAttribute("r", String(r));
     seg.setAttribute("fill", "none");
-    seg.setAttribute("stroke", cssVar(t.colorVar));
-    seg.setAttribute("stroke-width", "18");
-    seg.setAttribute("stroke-linecap", "round");
-    seg.setAttribute("stroke-dasharray", `${len} ${c - len}`);
-    seg.setAttribute("stroke-dashoffset", String(-offset));
+    seg.setAttribute("stroke", cssVar(segment.topic.colorVar));
+    seg.setAttribute("stroke-width", String(strokeWidth));
+    seg.setAttribute("stroke-linecap", "butt"); // Use butt to avoid overlap issues
+
+    // Set dasharray: segment length followed by gap
+    seg.setAttribute("stroke-dasharray", `${segment.length} ${c - segment.length}`);
+
+    // Set dashoffset to position this segment after previous ones
+    seg.setAttribute("stroke-dashoffset", String(-cumulativeOffset));
+
     svg.appendChild(seg);
 
-    offset += len;
+    cumulativeOffset += segment.length;
   }
 
   // Calculate yesterday comparison
