@@ -386,85 +386,74 @@ function renderStats(daily, days) {
   }
 }
 
-function arcPath(cx, cy, r, startAngle, endAngle) {
-  // angles in radians
-  const x1 = cx + r * Math.cos(startAngle);
-  const y1 = cy + r * Math.sin(startAngle);
-  const x2 = cx + r * Math.cos(endAngle);
-  const y2 = cy + r * Math.sin(endAngle);
-  // Use absolute difference to handle both clockwise and counterclockwise arcs
-  const largeArc = Math.abs(endAngle - startAngle) > Math.PI ? 1 : 0;
-  // Use sweep-flag=0 (counterclockwise) to draw arcs upward in SVG coordinates
-  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 0 ${x2} ${y2}`;
-}
-
-function renderGaugeCard(topic, perTopicEmotions) {
+function renderEmotionBarCard(topic, perTopicEmotions) {
   const card = document.createElement("article");
-  card.className = "card gaugeCard";
+  card.className = "card emotionBarCard";
 
   const total = sumObj(perTopicEmotions || {});
   const heavy = perTopicEmotions?.Heavy || 0;
   const light = perTopicEmotions?.Light || 0;
   const neutral = perTopicEmotions?.Neutral || 0;
 
-  // semicircle 180deg: from 180° to 0°
-  const segments = [
-    { key: "Heavy", ms: heavy, color: cssVar("--e-heavy") },
-    { key: "Light", ms: light, color: cssVar("--e-light") },
-    { key: "Neutral", ms: neutral, color: cssVar("--e-neutral") }
-  ];
+  // Calculate percentages
+  const heavyPct = safePercent(heavy, total);
+  const lightPct = safePercent(light, total);
+  const neutralPct = safePercent(neutral, total);
 
-  const svgNS = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNS, "svg");
-  svg.classList.add("gaugeSvg");
-  svg.setAttribute("viewBox", "0 0 240 140");
+  // Get topic color and icon
+  const topicData = TOPICS.find(t => t.key === topic);
+  const topicColor = topicData ? cssVar(topicData.colorVar) : '#666';
+  const topicIcon = getTopicIcon(topic);
 
-  // Track
-  const track = document.createElementNS(svgNS, "path");
-  track.setAttribute("d", arcPath(120, 120, 90, Math.PI, 0));
-  track.setAttribute("fill", "none");
-  track.setAttribute("stroke", "rgba(36,49,58,0.10)");
-  track.setAttribute("stroke-width", "10");
-  track.setAttribute("stroke-linecap", "round");
-  svg.appendChild(track);
+  card.innerHTML = `
+    <div class="emotionBarHeader">
+      <div class="emotionBarTitle">
+        <span class="topicIcon" style="color: ${topicColor}">${topicIcon}</span>
+        <span style="color: ${topicColor}">${topic}</span>
+      </div>
+      <div class="emotionBarTime">${formatMSShort(total)}</div>
+    </div>
 
-  let start = Math.PI;
-  const totalAngle = Math.PI; // 180deg
+    <div class="emotionBarTrack">
+      <div class="emotionBarSegment"
+           style="width: ${heavyPct}%; background: ${cssVar("--e-heavy")}"
+           data-emotion="Heavy"
+           data-pct="${heavyPct}%"
+           title="Heavy: ${heavyPct}%">
+      </div>
+      <div class="emotionBarSegment"
+           style="width: ${lightPct}%; background: ${cssVar("--e-light")}"
+           data-emotion="Light"
+           data-pct="${lightPct}%"
+           title="Light: ${lightPct}%">
+      </div>
+      <div class="emotionBarSegment"
+           style="width: ${neutralPct}%; background: ${cssVar("--e-neutral")}"
+           data-emotion="Neutral"
+           data-pct="${neutralPct}%"
+           title="Neutral: ${neutralPct}%">
+      </div>
+    </div>
 
-  for (const seg of segments) {
-    const frac = total ? seg.ms / total : 0;
-    const end = start - frac * totalAngle;
-    if (frac > 0) {
-      const p = document.createElementNS(svgNS, "path");
-      p.setAttribute("d", arcPath(120, 120, 90, start, end));
-      p.setAttribute("fill", "none");
-      p.setAttribute("stroke", seg.color);
-      p.setAttribute("stroke-width", "10");
-      p.setAttribute("stroke-linecap", "round");
-      svg.appendChild(p);
-    }
-    start = end;
-  }
-
-  const top = document.createElement("div");
-  top.className = "gaugeTop";
-  top.appendChild(svg);
-
-  const title = document.createElement("div");
-  title.className = "gaugeTitle";
-  title.textContent = topic;
-
-  const legend = document.createElement("div");
-  legend.className = "gaugeLegend";
-  legend.innerHTML = `
-    <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${cssVar("--e-heavy")};margin-right:6px"></span>Heavy Emotion</span>
-    <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${cssVar("--e-light")};margin-right:6px"></span>Light Emotion</span>
-    <span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:${cssVar("--e-neutral")};margin-right:6px"></span>Neutral Emotion</span>
+    <div class="emotionBarStats">
+      <div class="emotionStat">
+        <span class="emotionDot" style="background: ${cssVar("--e-heavy")}"></span>
+        <span class="emotionName">Heavy</span>
+        <span class="emotionValue">${heavyPct}%</span>
+      </div>
+      <div class="emotionStat">
+        <span class="emotionDot" style="background: ${cssVar("--e-light")}"></span>
+        <span class="emotionName">Light</span>
+        <span class="emotionValue">${lightPct}%</span>
+      </div>
+      <div class="emotionStat">
+        <span class="emotionDot" style="background: ${cssVar("--e-neutral")}"></span>
+        <span class="emotionName">Neutral</span>
+        <span class="emotionValue">${neutralPct}%</span>
+      </div>
+    </div>
   `;
 
-  card.appendChild(top);
-  card.appendChild(title);
-  card.appendChild(legend);
   return card;
 }
 
@@ -580,7 +569,7 @@ async function loadDashboard() {
       Light: Math.round((topicsMs[t.key] || 0) * 0.34),
       Neutral: (topicsMs[t.key] || 0) - Math.round((topicsMs[t.key] || 0) * 0.33) - Math.round((topicsMs[t.key] || 0) * 0.34)
     };
-    gauges.appendChild(renderGaugeCard(t.key, per));
+    gauges.appendChild(renderEmotionBarCard(t.key, per));
   }
 
   const foot = document.getElementById("footnote");

@@ -191,18 +191,119 @@ body{
 .barSeg{ height: 100%; }
 .barSeg + .barSeg{ box-shadow: inset 2px 0 0 rgba(255,255,255,0.8); }
 
-/* Gauges */
+/* Emotion Bar Cards */
 .gridBottom{
   margin-top: 14px;
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
-.gaugeCard{ display:flex; flex-direction:column; gap: 10px; }
-.gaugeTop{ display:flex; align-items:center; justify-content:center; padding-top: 6px; }
-.gaugeTitle{ text-align:center; font-weight: 750; color: rgba(36,49,58,0.78); }
-.gaugeSvg{ width: 230px; height: 130px; }
-.gaugeLegend{ display:flex; justify-content:space-between; gap: 10px; flex-wrap:wrap; font-size: 11px; color: var(--muted); }
+
+.emotionBarCard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.emotionBarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.emotionBarTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 750;
+  font-size: 15px;
+  color: rgba(36,49,58,0.85);
+}
+
+.topicIcon {
+  font-size: 20px;
+}
+
+.emotionBarTime {
+  font-size: 13px;
+  font-weight: 650;
+  color: rgba(36,49,58,0.65);
+  background: rgba(36,49,58,0.05);
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.emotionBarTrack {
+  display: flex;
+  height: 32px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(36,49,58,0.06);
+  box-shadow: inset 0 2px 4px rgba(36,49,58,0.08);
+}
+
+.emotionBarSegment {
+  transition: all 0.3s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.emotionBarSegment:hover {
+  filter: brightness(1.1);
+  transform: scaleY(1.1);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.emotionBarSegment::after {
+  content: attr(data-pct);
+  opacity: 0;
+  transition: opacity 0.2s;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.emotionBarSegment:hover::after {
+  opacity: 1;
+}
+
+.emotionBarStats {
+  display: flex;
+  justify-content: space-around;
+  gap: 10px;
+  padding: 6px 0 2px;
+}
+
+.emotionStat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.emotionDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.emotionName {
+  color: rgba(36,49,58,0.70);
+  font-weight: 500;
+}
+
+.emotionValue {
+  color: rgba(36,49,58,0.85);
+  font-weight: 700;
+  font-size: 13px;
+}
 
 .footnote{
   margin-top: 16px;
