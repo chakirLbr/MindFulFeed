@@ -298,7 +298,8 @@ function renderDonut(topicsMs, totalMs, daily) {
   }
 
   // Calculate segments with proper percentages
-  const center = size / 2;
+  const centerX = size / 2;
+  const centerY = size / 2;
   let currentAngle = 0;
 
   for (const t of TOPICS) {
@@ -317,7 +318,7 @@ function renderDonut(topicsMs, totalMs, daily) {
 
     // Create path for this segment
     const path = document.createElementNS(svgNS, "path");
-    path.setAttribute("d", describeArc(center, center, r, currentAngle, endAngle));
+    path.setAttribute("d", describeArc(centerX, centerY, r, currentAngle, endAngle));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", cssVar(t.colorVar));
     path.setAttribute("stroke-width", String(strokeWidth));
