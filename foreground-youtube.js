@@ -87,16 +87,8 @@
     }
 
     // Video thumbnail (high quality)
-    let thumbnail = '';
-    // Try to get from meta tags first (higher quality)
-    const metaThumb = document.querySelector('meta[property="og:image"]');
-    if (metaThumb) {
-      thumbnail = metaThumb.getAttribute('content') || '';
-    }
-    // Fallback to standard YouTube thumbnail URL
-    if (!thumbnail && videoId) {
-      thumbnail = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-    }
+    // Always use constructed URL from videoId for reliability in SPA navigation
+    const thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
 
     // Check if it's an ad
     const isAd = document.querySelector('.ytp-ad-player-overlay') !== null ||
@@ -156,7 +148,11 @@
    * Get video player element
    */
   function getVideoPlayer() {
-    return document.querySelector('video.html5-main-video');
+    // Try multiple selectors for better reliability
+    return document.querySelector('video.html5-main-video') ||
+           document.querySelector('video.video-stream') ||
+           document.querySelector('video') ||
+           document.querySelector('#movie_player video');
   }
 
   /**
@@ -225,7 +221,12 @@
    */
   function setupVisibilityObserver() {
     const player = getVideoPlayer();
-    if (!player) return;
+    if (!player) {
+      console.warn('[MindfulFeed YouTube] Video player not found, assuming visible');
+      // Assume visible if we can't find the player (failsafe to allow tracking)
+      currentVideoVisible = true;
+      return;
+    }
 
     if (visibilityObserver) {
       visibilityObserver.disconnect();
@@ -234,7 +235,11 @@
     visibilityObserver = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
+          const wasVisible = currentVideoVisible;
           currentVideoVisible = entry.intersectionRatio >= VISIBILITY_THRESHOLD;
+          if (!wasVisible && currentVideoVisible) {
+            console.log('[MindfulFeed YouTube] Video player became visible');
+          }
         }
       },
       {
@@ -244,6 +249,7 @@
     );
 
     visibilityObserver.observe(player);
+    console.log('[MindfulFeed YouTube] Visibility observer set up for player');
   }
 
   /**
@@ -344,7 +350,8 @@
     videos.clear();
     currentVideoId = null;
     lastCheckTime = now();
-    currentVideoVisible = false;
+    // Assume visible initially to allow immediate tracking
+    currentVideoVisible = true;
 
     // Initialize with current video
     const metadata = getVideoMetadata();
@@ -353,7 +360,7 @@
       ensureVideo(metadata);
     }
 
-    // Setup visibility tracking
+    // Setup visibility tracking (this will update currentVideoVisible)
     setupVisibilityObserver();
 
     // Start timers
@@ -406,14 +413,15 @@
 
     const observer = new MutationObserver(() => {
       if (location.href !== lastUrl) {
+        console.log('[MindfulFeed YouTube] Navigation detected:', lastUrl, '->', location.href);
         lastUrl = location.href;
 
-        // Video changed - reset current video tracking
+        // Don't update currentVideoId here - let activeCheck handle it
+        // This prevents race conditions where activeCheck doesn't detect the video change
+        // Just pre-fetch metadata to ensure the video element is loaded
         const metadata = getVideoMetadata();
-        if (metadata && metadata.videoId !== currentVideoId) {
-          currentVideoId = metadata.videoId;
-          ensureVideo(metadata);
-          setupVisibilityObserver();
+        if (metadata && metadata.videoId) {
+          console.log('[MindfulFeed YouTube] New video detected after navigation:', metadata.videoId, metadata.title);
         }
       }
     });
