@@ -90,9 +90,16 @@
     // Always use constructed URL from videoId for reliability in SPA navigation
     const thumbnail = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
 
-    // Check if it's an ad
-    const isAd = document.querySelector('.ytp-ad-player-overlay') !== null ||
-                 document.querySelector('.video-ads') !== null;
+    // Check if it's an ad - only check within the player/video area
+    // Look for ad indicators specifically in the video player
+    const player = document.querySelector('#movie_player');
+    const isAd = player ? (
+      player.classList.contains('ad-showing') ||
+      player.classList.contains('ad-interrupting') ||
+      player.querySelector('.ytp-ad-player-overlay') !== null ||
+      player.querySelector('.ytp-ad-text') !== null ||
+      document.querySelector('.ytp-ad-skip-button-modern') !== null
+    ) : false;
 
     return { videoId, title, channel, description, thumbnail, isAd };
   }
@@ -178,6 +185,10 @@
         channel: metadata.channel,
         isAd: metadata.isAd
       });
+
+      if (metadata.isAd) {
+        console.log('[MindfulFeed YouTube] ⚠️ Video marked as ad - will be filtered from analytics');
+      }
 
       videos.set(key, {
         videoId: metadata.videoId,
