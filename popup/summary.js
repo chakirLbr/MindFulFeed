@@ -430,28 +430,6 @@ async function loadDashboard() {
   foot.textContent = lastEnded
     ? `Last session ended: ${lastEnded.toLocaleString()}`
     : `No completed session yet — start the extension, then stop it to generate a report.`;
-
-  // Temporary debug dump (remove later)
-  const pre = document.getElementById("rawDump");
-  if (pre) {
-    const raw = res?.lastSession?.raw || null;
-    if (!raw) {
-      pre.textContent = "No raw session data yet. Open Instagram Home Feed, press Start, scroll a bit, then Stop.";
-    } else {
-      const topPosts = (raw.posts || []).slice(0, 10).map((p) => ({
-        dwellMs: p.dwellMs,
-        href: p.href,
-        caption: p.caption
-      }));
-      pre.textContent = JSON.stringify({
-        sessionId: raw.sessionId,
-        startedAt: raw.startedAt,
-        pageUrl: raw.pageUrl,
-        activeKey: raw.activeKey,
-        postsTop10: topPosts
-      }, null, 2);
-    }
-  }
 }
 
 document.getElementById("refreshBtn")?.addEventListener("click", loadDashboard);
