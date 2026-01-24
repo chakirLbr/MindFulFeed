@@ -844,30 +844,45 @@ async function loadDashboard() {
         const perPostAI = fullAnalysis?.perPostAnalysis || [];
         const hasAIResults = perPostAI.length > 0;
 
-        const topPosts = (raw.posts || []).slice(0, 30).map((p, index) => {
+        // Get items (posts or videos) based on platform
+        const rawPlatform = raw.platform || 'instagram';
+        const items = rawPlatform === 'youtube' ? (raw.videos || []) : (raw.posts || []);
+
+        const topPosts = items.slice(0, 30).map((item, index) => {
+          // For YouTube videos, construct caption from title/description
+          const caption = rawPlatform === 'youtube'
+            ? `${item.title || ''}\n${item.description || ''}`
+            : item.caption;
+
           const postAnalysis = hasAIResults && perPostAI[index]
             ? perPostAI[index]
-            : analyzePostDebug(p.caption);
+            : analyzePostDebug(caption);
 
           return {
             index: index + 1,
-            dwellSeconds: Math.round(p.dwellMs / 1000),
-            href: p.href,
-            caption: p.caption,
-            imageUrl: p.imageUrl,  // Include image URL
+            dwellSeconds: Math.round((item.watchMs || item.dwellMs || 0) / 1000),
+            href: item.href || `https://www.youtube.com/watch?v=${item.videoId}`,
+            caption: caption,
+            imageUrl: item.imageUrl || item.thumbnail,  // Support both post images and video thumbnails
             aiCategories: postAnalysis,
             analysisSource: hasAIResults && perPostAI[index] ? 'AI' : 'heuristic'
           };
         });
 
+        // Calculate total items based on platform
+        const platform = raw.platform || 'instagram';
+        const totalItems = platform === 'youtube'
+          ? (raw.videos || []).length
+          : (raw.posts || []).length;
+
         const sessionData = {
           sessionId: raw.sessionId,
-          platform: raw.platform || 'instagram',
+          platform: platform,
           startedAt: raw.startedAt,
           endedAt: session.endedAt,
           durationMinutes: Math.round(session.durationMs / 60000),
           pageUrl: raw.pageUrl,
-          totalPosts: (raw.posts || []).length,
+          totalPosts: totalItems,
           analysisMethod: fullAnalysis?.analysisMethod || 'heuristic',
           overallCategories: fullAnalysis ? {
             topics: fullAnalysis.topics,

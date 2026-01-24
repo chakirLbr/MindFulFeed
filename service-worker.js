@@ -667,11 +667,15 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   const todaySessionCount = sessionCounts[dayKey] || 1;
 
   // Store session analytics for Summary page
+  // IMPORTANT: Use raw.platform instead of meta.platform because the content script
+  // provides the authoritative platform (handles cases where user switches platforms mid-session)
+  const actualPlatform = raw?.platform || meta.platform || 'instagram';
+
   const session = {
     sessionId: meta.sessionId,
     endedAt,
     durationMs,
-    platform: meta.platform,
+    platform: actualPlatform,
     topics: breakdown.topicMs,
     emotions: breakdown.emotionMs,
     perTopicEmotions: breakdown.perTopicEmotions,
