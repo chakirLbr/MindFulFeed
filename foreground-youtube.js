@@ -67,29 +67,66 @@
     const videoId = getVideoIdFromUrl();
     if (!videoId) return null;
 
-    // Title (multiple selectors for robustness)
+    // Title (multiple selectors for robustness, prioritize primary video area)
     let title = '';
-    const titleEl = document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
-                    document.querySelector('h1.title yt-formatted-string') ||
-                    document.querySelector('#title h1');
+    const titleEl =
+      // Primary video title (most reliable)
+      document.querySelector('ytd-watch-metadata h1 yt-formatted-string') ||
+      document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+      document.querySelector('#above-the-fold h1 yt-formatted-string') ||
+      // Legacy selectors
+      document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+      document.querySelector('h1.title yt-formatted-string') ||
+      document.querySelector('#title h1') ||
+      // Fallback to any h1 in primary
+      document.querySelector('#primary h1 yt-formatted-string');
+
     if (titleEl) {
       title = titleEl.textContent?.trim() || '';
     }
 
-    // Channel name
+    // Channel name - use more specific selectors for the primary video page
     let channel = '';
-    const channelEl = document.querySelector('ytd-channel-name a') ||
-                      document.querySelector('#channel-name a') ||
-                      document.querySelector('#upload-info a');
+    // Try multiple specific selectors in order of reliability
+    const channelEl =
+      // Primary video owner section (most reliable)
+      document.querySelector('ytd-video-owner-renderer ytd-channel-name a') ||
+      document.querySelector('#owner ytd-channel-name a') ||
+      document.querySelector('ytd-video-owner-renderer #channel-name a') ||
+      // Secondary meta section
+      document.querySelector('#upload-info ytd-channel-name a') ||
+      document.querySelector('#upload-info #channel-name a') ||
+      // Fallback to any channel name in primary column
+      document.querySelector('#primary ytd-channel-name a') ||
+      document.querySelector('#primary #channel-name a') ||
+      // Last resort - any channel link in video info
+      document.querySelector('ytd-channel-name a');
+
     if (channelEl) {
       channel = channelEl.textContent?.trim() || '';
     }
 
-    // Video description
+    // If still no channel, try getting from the channel link href
+    if (!channel && channelEl && channelEl.href) {
+      const match = channelEl.href.match(/\/@([^\/]+)/);
+      if (match) {
+        channel = match[1];
+      }
+    }
+
+    // Video description (from primary video area)
     let description = '';
-    const descriptionEl = document.querySelector('ytd-text-inline-expander#description yt-attributed-string span') ||
-                         document.querySelector('#description yt-formatted-string') ||
-                         document.querySelector('#description-inline-expander yt-formatted-string');
+    const descriptionEl =
+      // Modern YouTube description
+      document.querySelector('ytd-watch-metadata #description yt-attributed-string span') ||
+      document.querySelector('ytd-text-inline-expander#description yt-attributed-string span') ||
+      document.querySelector('#description-inline-expander yt-attributed-string span') ||
+      // Legacy selectors
+      document.querySelector('#description yt-formatted-string') ||
+      document.querySelector('#description-inline-expander yt-formatted-string') ||
+      // Fallback
+      document.querySelector('#primary #description span');
+
     if (descriptionEl) {
       description = descriptionEl.textContent?.trim() || '';
     }
@@ -108,6 +145,19 @@
       player.querySelector('.ytp-ad-text') !== null ||
       document.querySelector('.ytp-ad-skip-button-modern') !== null
     ) : false;
+
+    // Log extraction details for debugging (only if title or channel is missing/suspicious)
+    if (!title || !channel || title.length < 5 || channel.length < 2) {
+      console.log('[MindfulFeed YouTube] Metadata extraction details:', {
+        videoId,
+        titleFound: !!title,
+        titleLength: title?.length || 0,
+        channelFound: !!channel,
+        channelLength: channel?.length || 0,
+        titleElement: titleEl ? 'found' : 'not found',
+        channelElement: channelEl ? 'found' : 'not found'
+      });
+    }
 
     return { videoId, title, channel, description, thumbnail, isAd };
   }
@@ -368,6 +418,14 @@
             channelChanged: channelChanged,
             delayMs: attemptDelays[attempt]
           });
+
+          // Warn if title changed but channel didn't (suspicious - might be stale channel)
+          if (titleChanged && !channelChanged && previousChannel) {
+            console.warn('[MindfulFeed YouTube] ⚠️ Title changed but channel stayed the same - channel might be stale!', {
+              channel: freshMetadata.channel,
+              note: 'If videos are from different channels, the channel extraction may have captured old data'
+            });
+          }
         } else {
           // Title hasn't changed yet or is invalid - retry if we have attempts left
           attempt++;
