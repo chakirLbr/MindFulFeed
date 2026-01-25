@@ -307,7 +307,13 @@
 
     // Check if video changed
     if (currentVideoId !== metadata.videoId) {
-      console.log('[MindfulFeed YouTube] Video changed to:', metadata.videoId, metadata.title);
+      // Store previous video info for logging
+      const prevTitle = currentVideoId ? videos.get(currentVideoId)?.title : null;
+
+      console.log('[MindfulFeed YouTube] 🔄 Video navigation detected:', {
+        from: { videoId: currentVideoId, title: prevTitle || '(none)' },
+        to: { videoId: metadata.videoId, title: metadata.title || '(loading...)' }
+      });
 
       // Store previous video ID to validate title changes
       previousVideoId = currentVideoId;
@@ -318,9 +324,10 @@
 
       // Multi-step metadata extraction with validation
       // Try multiple times with increasing delays to ensure DOM is updated
+      // YouTube's DOM can be VERY slow to update, especially on slower connections
       let attempt = 0;
-      const maxAttempts = 3;
-      const attemptDelays = [800, 1500, 2500]; // Progressive delays
+      const maxAttempts = 4;
+      const attemptDelays = [1200, 2500, 4000, 6000]; // Progressive delays (up to 6 seconds)
 
       const tryExtractMetadata = () => {
         const freshMetadata = getVideoMetadata();
@@ -335,25 +342,37 @@
 
         if (hasValidTitle && titleChanged) {
           ensureVideo(freshMetadata);
-          console.log('[MindfulFeed YouTube] ✓ Fresh metadata captured (attempt ' + (attempt + 1) + '):', {
+          console.log('[MindfulFeed YouTube] ✅ Fresh metadata captured (attempt ' + (attempt + 1) + '):', {
             videoId: freshMetadata.videoId,
             title: freshMetadata.title,
-            titleChanged: titleChanged
+            previousTitle: previousTitle,
+            titleChanged: titleChanged,
+            delayMs: attemptDelays[attempt]
           });
         } else {
           // Title hasn't changed yet or is invalid - retry if we have attempts left
           attempt++;
           if (attempt < maxAttempts) {
-            console.log('[MindfulFeed YouTube] ⚠️ Title not ready (attempt ' + attempt + '), retrying...', {
+            console.log('[MindfulFeed YouTube] ⏳ Title not ready (attempt ' + attempt + '), retrying in ' + attemptDelays[attempt] + 'ms...', {
               hasValidTitle,
               titleChanged,
               currentTitle: freshMetadata.title,
-              previousTitle: previousTitle
+              previousTitle: previousTitle,
+              reason: !hasValidTitle ? 'title too short' : 'title matches previous video (stale DOM)'
             });
             setTimeout(tryExtractMetadata, attemptDelays[attempt]);
           } else {
-            // Last attempt - accept whatever we have
-            console.log('[MindfulFeed YouTube] ⚠️ Using metadata after max attempts:', freshMetadata.title);
+            // Last attempt - accept whatever we have but warn if it looks wrong
+            if (!titleChanged) {
+              console.warn('[MindfulFeed YouTube] ⚠️ WARNING: Using potentially stale title after max attempts!', {
+                videoId: freshMetadata.videoId,
+                title: freshMetadata.title,
+                previousTitle: previousTitle,
+                note: 'YouTube DOM may not have updated yet - title might be wrong'
+              });
+            } else {
+              console.log('[MindfulFeed YouTube] Using metadata after max attempts:', freshMetadata.title);
+            }
             ensureVideo(freshMetadata);
           }
         }
@@ -380,15 +399,20 @@
           console.log(`[MindfulFeed YouTube] Accumulating watch time for ${video.videoId}: ${Math.round(video.watchMs / 1000)}s`);
         }
 
-        // Retry metadata extraction if title is missing or might be stale (every ~10 seconds while playing)
-        // Only retry in the first 30 seconds of watching
-        if (video.watchMs < 30000 && video.watchMs % 10000 < 1000) {
+        // Retry metadata extraction if title is missing or might be stale
+        // Check at 15 seconds and 30 seconds only (not continuously)
+        const shouldCheckMetadata = (
+          (video.watchMs >= 14000 && video.watchMs < 16000) ||
+          (video.watchMs >= 29000 && video.watchMs < 31000)
+        );
+
+        if (shouldCheckMetadata) {
           const previousTitle = previousVideoId ? videos.get(previousVideoId)?.title : null;
           const mightBeStale = previousTitle && video.title === previousTitle;
 
           if (!video.title || video.title.length < 5 || mightBeStale) {
-            console.log(`[MindfulFeed YouTube] Retrying metadata extraction:`, {
-              reason: !video.title ? 'missing' : video.title.length < 5 ? 'too short' : 'might be stale',
+            console.log(`[MindfulFeed YouTube] 🔍 Periodic metadata check (${Math.round(video.watchMs / 1000)}s):`, {
+              reason: !video.title ? 'missing title' : video.title.length < 5 ? 'title too short' : 'title matches previous video (likely stale)',
               currentTitle: video.title,
               previousTitle: previousTitle
             });
@@ -432,8 +456,22 @@
     };
 
     console.log(`[MindfulFeed YouTube] Pushing update: ${snapshot.videos.length} videos (${allVideos.length} total, ${allVideos.length - nonAdVideos.length} ads filtered), finalize=${finalize}`);
+
+    // Log currently playing video
+    if (currentVideoId) {
+      const currentVideo = videos.get(currentVideoId);
+      if (currentVideo && !currentVideo.isAd) {
+        console.log('[MindfulFeed YouTube] 🎬 Currently playing:', {
+          videoId: currentVideoId,
+          title: currentVideo.title || '(title loading...)',
+          watchMs: currentVideo.watchMs
+        });
+      }
+    }
+
+    // Log video with most watch time (for comparison)
     if (snapshot.videos.length > 0) {
-      console.log('[MindfulFeed YouTube] Top video:', {
+      console.log('[MindfulFeed YouTube] 📊 Most watched video:', {
         videoId: snapshot.videos[0].videoId,
         title: snapshot.videos[0].title,
         watchMs: snapshot.videos[0].watchMs
