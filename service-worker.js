@@ -348,12 +348,12 @@ async function setSessionCounts(counts) {
 // Tab activation listener for automatic multi-tab tracking
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
-    // Check if we're currently tracking
+    // Check if we're currently tracking - CRITICAL: exit early if not tracking
     const state = await getState();
     if (!state.isTracking) return;
 
     // Get the activated tab details
-    const tab = await chrome.tabs.get(activeInfo.tabId);
+    const tab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
     if (!tab || !tab.url) return;
 
     // Check if it's Instagram or YouTube
@@ -373,6 +373,8 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
     // Check if this tab is already tracked
     const meta = await getSessionMeta();
+    if (!meta || !meta.sessionId) return; // No active session
+
     if (isTabTracked(activeInfo.tabId, meta)) {
       console.log(`[MindfulFeed] User switched to already-tracked ${platform} tab ${activeInfo.tabId}`);
       return;
@@ -886,10 +888,22 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
     raw: raw,
     sessionCount: todaySessionCount
   };
+
+  console.log('[MindfulFeed] Saving session to history:', {
+    sessionId: session.sessionId,
+    platform: session.platform,
+    isMultiPlatform: session.isMultiPlatform,
+    platforms: session.platforms,
+    durationMs: session.durationMs,
+    hasTopics: !!session.topics,
+    hasEmotions: !!session.emotions
+  });
+
   await setLastSession(session);
 
   // Add to session history (keep last 20 sessions)
   await addToSessionHistory(session);
+  console.log('[MindfulFeed] Session added to history successfully');
 
   // Aggregate into daily bucket
   const daily = await getDaily();
