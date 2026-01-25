@@ -1294,6 +1294,16 @@ function renderSessionPosts(session) {
       ? item.title
       : (item.caption || 'No caption');
 
+    // For YouTube videos, show description/summary below title
+    const descriptionText = isYouTube && item.description
+      ? item.description
+      : '';
+
+    // Truncate description if too long (max 150 chars for display)
+    const displayDescription = descriptionText.length > 150
+      ? descriptionText.substring(0, 150) + '...'
+      : descriptionText;
+
     itemCard.innerHTML = `
       <div class="postImage">
         ${imageHtml}
@@ -1304,6 +1314,7 @@ function renderSessionPosts(session) {
           <span class="postDwell">⏱ ${dwellText}</span>
         </div>
         <div class="postCaption">${captionText}</div>
+        ${displayDescription ? `<div class="postDescription">${displayDescription}</div>` : ''}
         <div class="postTags">
           <span class="postTag topic-${topicClass}" style="color: ${topicColor}">
             ${getTopicIcon(topic)} ${topic}

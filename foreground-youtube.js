@@ -67,32 +67,111 @@
     const videoId = getVideoIdFromUrl();
     if (!videoId) return null;
 
-    // Title (multiple selectors for robustness)
+    // Title (multiple selectors for robustness, prioritize primary video area)
     let title = '';
-    const titleEl = document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
-                    document.querySelector('h1.title yt-formatted-string') ||
-                    document.querySelector('#title h1');
+    const titleEl =
+      // Primary video title (most reliable)
+      document.querySelector('ytd-watch-metadata h1 yt-formatted-string') ||
+      document.querySelector('h1.ytd-watch-metadata yt-formatted-string') ||
+      document.querySelector('#above-the-fold h1 yt-formatted-string') ||
+      // Legacy selectors
+      document.querySelector('h1.ytd-video-primary-info-renderer yt-formatted-string') ||
+      document.querySelector('h1.title yt-formatted-string') ||
+      document.querySelector('#title h1') ||
+      // Fallback to any h1 in primary
+      document.querySelector('#primary h1 yt-formatted-string');
+
     if (titleEl) {
       title = titleEl.textContent?.trim() || '';
     }
 
-    // Channel name
+    // Channel name - use more specific selectors for the primary video page
     let channel = '';
-    const channelEl = document.querySelector('ytd-channel-name a') ||
-                      document.querySelector('#channel-name a') ||
-                      document.querySelector('#upload-info a');
+    // Try multiple specific selectors in order of reliability
+    const channelEl =
+      // Primary video owner section (most reliable)
+      document.querySelector('ytd-video-owner-renderer ytd-channel-name a') ||
+      document.querySelector('#owner ytd-channel-name a') ||
+      document.querySelector('ytd-video-owner-renderer #channel-name a') ||
+      // Secondary meta section
+      document.querySelector('#upload-info ytd-channel-name a') ||
+      document.querySelector('#upload-info #channel-name a') ||
+      // Fallback to any channel name in primary column
+      document.querySelector('#primary ytd-channel-name a') ||
+      document.querySelector('#primary #channel-name a') ||
+      // Last resort - any channel link in video info
+      document.querySelector('ytd-channel-name a');
+
     if (channelEl) {
       channel = channelEl.textContent?.trim() || '';
     }
 
-    // Video description
+    // If still no channel, try getting from the channel link href
+    if (!channel && channelEl && channelEl.href) {
+      const match = channelEl.href.match(/\/@([^\/]+)/);
+      if (match) {
+        channel = match[1];
+      }
+    }
+
+    // Video description (from primary video area)
+    // Try to get the full description including AI summary if available
     let description = '';
-    const descriptionEl = document.querySelector('ytd-text-inline-expander#description yt-attributed-string span') ||
-                         document.querySelector('#description yt-formatted-string') ||
-                         document.querySelector('#description-inline-expander yt-formatted-string');
+    let summary = '';
+
+    // Strategy 1: Try to get AI-generated summary (YouTube's new feature - small snippet)
+    const summaryEl = document.querySelector('ytd-watch-metadata #description-inner #snippet-text') ||
+                     document.querySelector('ytd-text-inline-expander#description #snippet-text') ||
+                     document.querySelector('#structured-description ytd-video-description-header-renderer #snippet');
+    if (summaryEl) {
+      summary = summaryEl.textContent?.trim() || '';
+      console.log('[MindfulFeed YouTube] AI summary found:', summary.substring(0, 100));
+    }
+
+    // Strategy 2: Get visible description snippet (before "Show more" is clicked)
+    const snippetEl = document.querySelector('ytd-watch-metadata #description-inner #snippet span') ||
+                     document.querySelector('ytd-text-inline-expander #snippet span');
+    if (snippetEl && !summary) {
+      summary = snippetEl.textContent?.trim() || '';
+    }
+
+    // Strategy 3: Get full description (may require "Show more" to be clicked)
+    const descriptionEl =
+      // Modern YouTube description (full text)
+      document.querySelector('ytd-watch-metadata #description yt-attributed-string span') ||
+      document.querySelector('ytd-text-inline-expander#description yt-attributed-string span') ||
+      document.querySelector('#description-inline-expander yt-attributed-string span') ||
+      // Try getting all description text including expanded content
+      document.querySelector('ytd-watch-metadata #description-inner') ||
+      document.querySelector('ytd-text-inline-expander #content') ||
+      // Legacy selectors
+      document.querySelector('#description yt-formatted-string') ||
+      document.querySelector('#description-inline-expander yt-formatted-string') ||
+      // Fallback
+      document.querySelector('#primary #description span');
+
     if (descriptionEl) {
       description = descriptionEl.textContent?.trim() || '';
     }
+
+    // Prioritize AI summary if available (it's usually better for analysis)
+    // Otherwise use full description, or snippet as fallback
+    let finalDescription = summary || description;
+
+    // Clean up the description (remove excessive newlines, etc.)
+    if (finalDescription) {
+      finalDescription = finalDescription
+        .replace(/\n{3,}/g, '\n\n')  // Replace 3+ newlines with 2
+        .trim();
+    }
+
+    // Limit description length to avoid huge payloads
+    // Keep first 800 chars for AI analysis (good balance of context vs payload size)
+    if (finalDescription.length > 800) {
+      finalDescription = finalDescription.substring(0, 800) + '...';
+    }
+
+    description = finalDescription;
 
     // Video thumbnail (high quality)
     // Always use constructed URL from videoId for reliability in SPA navigation
@@ -108,6 +187,19 @@
       player.querySelector('.ytp-ad-text') !== null ||
       document.querySelector('.ytp-ad-skip-button-modern') !== null
     ) : false;
+
+    // Log extraction details for debugging (only if title or channel is missing/suspicious)
+    if (!title || !channel || title.length < 5 || channel.length < 2) {
+      console.log('[MindfulFeed YouTube] Metadata extraction details:', {
+        videoId,
+        titleFound: !!title,
+        titleLength: title?.length || 0,
+        channelFound: !!channel,
+        channelLength: channel?.length || 0,
+        titleElement: titleEl ? 'found' : 'not found',
+        channelElement: channelEl ? 'found' : 'not found'
+      });
+    }
 
     return { videoId, title, channel, description, thumbnail, isAd };
   }
@@ -368,6 +460,14 @@
             channelChanged: channelChanged,
             delayMs: attemptDelays[attempt]
           });
+
+          // Warn if title changed but channel didn't (suspicious - might be stale channel)
+          if (titleChanged && !channelChanged && previousChannel) {
+            console.warn('[MindfulFeed YouTube] ⚠️ Title changed but channel stayed the same - channel might be stale!', {
+              channel: freshMetadata.channel,
+              note: 'If videos are from different channels, the channel extraction may have captured old data'
+            });
+          }
         } else {
           // Title hasn't changed yet or is invalid - retry if we have attempts left
           attempt++;
