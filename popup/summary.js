@@ -1311,11 +1311,20 @@ function openSessionModal(session) {
     itemLabel = 'Videos';
   }
 
+  // Determine platform display text
+  let platformText;
+  if (session.isMultiPlatform && session.platforms) {
+    platformText = session.platforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ');
+  } else {
+    const platform = session.platform || 'instagram';
+    platformText = platform.charAt(0).toUpperCase() + platform.slice(1);
+  }
+
   modalSubtitle.innerHTML = `
     <span><strong>Time:</strong> ${sessionDate}</span>
     <span><strong>Duration:</strong> ${formatDuration(session.durationMs)}</span>
     <span><strong>${itemLabel}:</strong> ${itemCount}</span>
-    <span><strong>Platform:</strong> ${isYouTube ? 'YouTube' : 'Instagram'}</span>
+    <span><strong>Platform:</strong> ${platformText}</span>
   `;
 
   // Render posts
