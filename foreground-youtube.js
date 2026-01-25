@@ -115,12 +115,35 @@
     }
 
     // Video description (from primary video area)
+    // Try to get the full description including AI summary if available
     let description = '';
+    let summary = '';
+
+    // Strategy 1: Try to get AI-generated summary (YouTube's new feature - small snippet)
+    const summaryEl = document.querySelector('ytd-watch-metadata #description-inner #snippet-text') ||
+                     document.querySelector('ytd-text-inline-expander#description #snippet-text') ||
+                     document.querySelector('#structured-description ytd-video-description-header-renderer #snippet');
+    if (summaryEl) {
+      summary = summaryEl.textContent?.trim() || '';
+      console.log('[MindfulFeed YouTube] AI summary found:', summary.substring(0, 100));
+    }
+
+    // Strategy 2: Get visible description snippet (before "Show more" is clicked)
+    const snippetEl = document.querySelector('ytd-watch-metadata #description-inner #snippet span') ||
+                     document.querySelector('ytd-text-inline-expander #snippet span');
+    if (snippetEl && !summary) {
+      summary = snippetEl.textContent?.trim() || '';
+    }
+
+    // Strategy 3: Get full description (may require "Show more" to be clicked)
     const descriptionEl =
-      // Modern YouTube description
+      // Modern YouTube description (full text)
       document.querySelector('ytd-watch-metadata #description yt-attributed-string span') ||
       document.querySelector('ytd-text-inline-expander#description yt-attributed-string span') ||
       document.querySelector('#description-inline-expander yt-attributed-string span') ||
+      // Try getting all description text including expanded content
+      document.querySelector('ytd-watch-metadata #description-inner') ||
+      document.querySelector('ytd-text-inline-expander #content') ||
       // Legacy selectors
       document.querySelector('#description yt-formatted-string') ||
       document.querySelector('#description-inline-expander yt-formatted-string') ||
@@ -130,6 +153,25 @@
     if (descriptionEl) {
       description = descriptionEl.textContent?.trim() || '';
     }
+
+    // Prioritize AI summary if available (it's usually better for analysis)
+    // Otherwise use full description, or snippet as fallback
+    let finalDescription = summary || description;
+
+    // Clean up the description (remove excessive newlines, etc.)
+    if (finalDescription) {
+      finalDescription = finalDescription
+        .replace(/\n{3,}/g, '\n\n')  // Replace 3+ newlines with 2
+        .trim();
+    }
+
+    // Limit description length to avoid huge payloads
+    // Keep first 800 chars for AI analysis (good balance of context vs payload size)
+    if (finalDescription.length > 800) {
+      finalDescription = finalDescription.substring(0, 800) + '...';
+    }
+
+    description = finalDescription;
 
     // Video thumbnail (high quality)
     // Always use constructed URL from videoId for reliability in SPA navigation
