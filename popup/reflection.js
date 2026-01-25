@@ -2,6 +2,34 @@
 
 let sessionData = null;
 
+// Helper function for multi-platform session data
+function getSessionItemCount(session) {
+  if (!session || !session.raw) return 0;
+
+  const raw = session.raw;
+  let totalCount = 0;
+
+  // New multi-platform format
+  if (raw.platforms) {
+    if (raw.platforms.instagram?.posts) {
+      totalCount += raw.platforms.instagram.posts.length;
+    }
+    if (raw.platforms.youtube?.videos) {
+      totalCount += raw.platforms.youtube.videos.length;
+    }
+  } else {
+    // Old single-platform format
+    const platform = raw.platform || session.platform || 'instagram';
+    if (platform === 'youtube' && raw.videos) {
+      totalCount = raw.videos.length;
+    } else if (raw.posts) {
+      totalCount = raw.posts.length;
+    }
+  }
+
+  return totalCount;
+}
+
 // Format time
 function formatTime(ms) {
   const totalSeconds = Math.floor(ms / 1000);
@@ -214,21 +242,29 @@ async function loadSessionData() {
   // Update summary
   document.getElementById('sessionDuration').textContent = formatTime(sessionData.durationMs);
 
+  // Display platform(s)
   const platform = sessionData.platform || 'instagram';
-  const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+  let platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+
+  // If multi-platform session, show all platforms
+  if (sessionData.isMultiPlatform && sessionData.platforms) {
+    platformName = sessionData.platforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' + ');
+  }
+
   document.getElementById('sessionPlatform').textContent = platformName;
 
-  // Count posts/videos based on platform
-  const itemCount = platform === 'youtube'
-    ? (sessionData.raw?.videos?.length || 0)
-    : (sessionData.raw?.posts?.length || 0);
-
+  // Count all items across all platforms
+  const itemCount = getSessionItemCount(sessionData);
   document.getElementById('postsViewed').textContent = itemCount;
 
   // Update label for posts/videos
   const postsLabel = document.querySelector('.stat:nth-child(3) .stat-label');
   if (postsLabel) {
-    postsLabel.textContent = platform === 'youtube' ? 'Videos Viewed' : 'Posts Viewed';
+    if (sessionData.isMultiPlatform) {
+      postsLabel.textContent = 'Videos & Posts';
+    } else {
+      postsLabel.textContent = platform === 'youtube' ? 'Videos Viewed' : 'Posts Viewed';
+    }
   }
 
   // Show achievements if any
