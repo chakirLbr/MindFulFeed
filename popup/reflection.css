@@ -8,7 +8,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4FACB0 0%, #3D8C87 100%);
   min-height: 100vh;
   color: #2d3748;
 }
@@ -134,7 +134,7 @@ body {
 
 /* Session Summary */
 .session-summary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4FACB0 0%, #3D8C87 100%);
   color: white;
 }
 
@@ -209,7 +209,7 @@ body {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #667eea;
+  background: #4E9CA6;
   cursor: pointer;
   transition: transform 0.2s;
 }
@@ -222,7 +222,7 @@ body {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #667eea;
+  background: #4E9CA6;
   cursor: pointer;
   border: none;
   transition: transform 0.2s;
@@ -242,7 +242,7 @@ body {
 
 .scale-value {
   font-weight: 600;
-  color: #667eea;
+  color: #4E9CA6;
 }
 
 /* Mood Options */
@@ -275,7 +275,7 @@ body {
 }
 
 .mood-option input[type="radio"]:checked + .mood-emoji + .mood-label {
-  color: #667eea;
+  color: #4E9CA6;
 }
 
 .mood-option input[type="radio"]:checked ~ .mood-emoji {
@@ -283,7 +283,7 @@ body {
 }
 
 .mood-option:has(input[type="radio"]:checked) {
-  border-color: #667eea;
+  border-color: #4E9CA6;
   background: #edf2f7;
 }
 
@@ -312,7 +312,7 @@ textarea {
 
 textarea:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #4E9CA6;
 }
 
 /* Form Actions */
@@ -334,13 +334,13 @@ textarea:focus {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #4FACB0 0%, #3D8C87 100%);
   color: white;
 }
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 4px 12px rgba(78, 156, 166, 0.4);
 }
 
 .btn-secondary {
