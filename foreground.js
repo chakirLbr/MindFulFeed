@@ -3,6 +3,12 @@
 // Sends periodic updates to the MV3 service worker.
 
 (() => {
+  // Exit if extension context is invalidated (after extension reload)
+  if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+    console.log('[MindfulFeed] Extension context invalidated, content script exiting');
+    return;
+  }
+
   const VISIBILITY_THRESHOLD = 0.6;     // count dwell when >= 60% visible
   const ACTIVE_MIN_RATIO = 0.15;       // candidate for "active" post
   const TICK_MS = 250;                 // internal timing tick
@@ -36,11 +42,18 @@
 
   function safeSend(msg) {
     try {
+      // Check if extension context is still valid
+      if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+        console.warn('[MindfulFeed] Cannot send message: extension context invalidated');
+        return;
+      }
       chrome.runtime.sendMessage(msg, () => {
         // ignore response; avoid spamming errors
         void chrome.runtime.lastError;
       });
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[MindfulFeed] Error sending message:', err.message);
+    }
   }
 
   function normalizeKey(href) {
