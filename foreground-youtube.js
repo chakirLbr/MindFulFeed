@@ -2,6 +2,12 @@
 // Tracks video watch time, recommendations clicked, and content consumption
 
 (() => {
+  // Exit if extension context is invalidated (after extension reload)
+  if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+    console.log('[MindfulFeed YouTube] Extension context invalidated, content script exiting');
+    return;
+  }
+
   // Prevent multiple instances of the content script
   if (window.__MINDFUL_FEED_YOUTUBE_LOADED__) {
     console.log('[MindfulFeed YouTube] Content script already loaded, skipping duplicate injection');
@@ -36,10 +42,17 @@
 
   function safeSend(msg) {
     try {
+      // Check if extension context is still valid
+      if (!chrome || !chrome.runtime || !chrome.runtime.id) {
+        console.warn('[MindfulFeed YouTube] Cannot send message: extension context invalidated');
+        return;
+      }
       chrome.runtime.sendMessage(msg, () => {
         void chrome.runtime.lastError;
       });
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[MindfulFeed YouTube] Error sending message:', err.message);
+    }
   }
 
   /**
