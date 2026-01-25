@@ -4,6 +4,7 @@
 // - AI-powered content analysis
 // - Gamification and leaderboard
 // - Reflection and feedback system
+// - Multi-tab tracking support (YouTube + Instagram simultaneously)
 
 // Import enhanced modules
 importScripts('ai-analysis.js', 'gamification.js', 'reflection-system.js');
@@ -12,7 +13,7 @@ const STATE_KEY = "mf_timer_state";
 const DAILY_KEY = "mf_daily_stats";
 const LAST_SESSION_KEY = "mf_last_session";
 const RAW_SESSION_KEY = "mf_raw_session"; // dwell/caption snapshot from content script
-const SESSION_META_KEY = "mf_session_meta"; // { sessionId, tabId, acceptFinalizeUntil }
+const SESSION_META_KEY = "mf_session_meta"; // { sessionId, trackedTabs: [...], acceptFinalizeUntil }
 const SESSION_COUNT_KEY = "mf_daily_session_count"; // Track session count per day
 const SESSION_HISTORY_KEY = "mf_session_history"; // Array of recent sessions (keep last 20)
 const INCREMENTAL_ANALYSIS_KEY = "mf_incremental_analysis"; // Store incremental analysis results
@@ -255,6 +256,83 @@ async function setSessionMeta(meta) {
   });
 }
 
+// Multi-tab tracking helper functions
+async function addTabToTracking(tabId, platform) {
+  const meta = await getSessionMeta();
+  if (!meta || !meta.sessionId) {
+    console.warn('[MindfulFeed] Cannot add tab: no active session');
+    return false;
+  }
+
+  // Check if tab is already tracked
+  const trackedTabs = meta.trackedTabs || [];
+  if (trackedTabs.some(t => t.tabId === tabId)) {
+    console.log(`[MindfulFeed] Tab ${tabId} already tracked`);
+    return false;
+  }
+
+  // Add new tab to tracking
+  const newTab = {
+    tabId,
+    platform,
+    addedAt: getNow()
+  };
+  trackedTabs.push(newTab);
+
+  await setSessionMeta({
+    ...meta,
+    trackedTabs
+  });
+
+  console.log(`[MindfulFeed] ✓ Added ${platform} tab ${tabId} to tracking (${trackedTabs.length} tabs total)`);
+
+  // Initialize platform data in raw session if needed
+  const raw = await getRawSession();
+  if (raw && !raw.platforms) {
+    // Migrate old format to new format
+    const platforms = {};
+    if (raw.platform === 'youtube' && raw.videos) {
+      platforms.youtube = {
+        videos: raw.videos,
+        firstSeenAt: raw.startedAt,
+        pageUrl: raw.pageUrl
+      };
+    } else if (raw.platform === 'instagram' && raw.posts) {
+      platforms.instagram = {
+        posts: raw.posts,
+        firstSeenAt: raw.startedAt,
+        pageUrl: raw.pageUrl
+      };
+    }
+    await setRawSession({
+      sessionId: raw.sessionId,
+      startedAt: raw.startedAt,
+      platforms
+    });
+  } else if (raw && raw.platforms && !raw.platforms[platform]) {
+    // Add new platform to existing multi-platform structure
+    raw.platforms[platform] = {
+      [platform === 'youtube' ? 'videos' : 'posts']: [],
+      firstSeenAt: getNow(),
+      pageUrl: null
+    };
+    await setRawSession(raw);
+  }
+
+  // Send START signal to the new tab
+  await signalContentToTab(tabId, "START", {
+    sessionId: meta.sessionId,
+    startedAt: getNow()
+  });
+
+  return true;
+}
+
+function isTabTracked(tabId, meta) {
+  if (!meta || !meta.trackedTabs) return false;
+  return meta.trackedTabs.some(t => t.tabId === tabId);
+}
+
 async function getSessionCounts() {
   return new Promise((resolve) => {
     chrome.storage.local.get([SESSION_COUNT_KEY], (r) => resolve(r[SESSION_COUNT_KEY] || {}));
@@ -266,6 +344,47 @@ async function setSessionCounts(counts) {
     chrome.storage.local.set({ [SESSION_COUNT_KEY]: counts }, () => resolve());
   });
 }
+
+// Tab activation listener for automatic multi-tab tracking
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    // Check if we're currently tracking
+    const state = await getState();
+    if (!state.isTracking) return;
+
+    // Get the activated tab details
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (!tab || !tab.url) return;
+
+    // Check if it's Instagram or YouTube
+    let platform = null;
+    try {
+      const u = new URL(tab.url);
+      if (u.hostname === "www.instagram.com" || u.hostname === "instagram.com") {
+        platform = 'instagram';
+      } else if (u.hostname === "www.youtube.com" || u.hostname === "youtube.com") {
+        platform = 'youtube';
+      }
+    } catch (_) {
+      return;
+    }
+
+    if (!platform) return;
+
+    // Check if this tab is already tracked
+    const meta = await getSessionMeta();
+    if (isTabTracked(activeInfo.tabId, meta)) {
+      console.log(`[MindfulFeed] User switched to already-tracked ${platform} tab ${activeInfo.tabId}`);
+      return;
+    }
+
+    // Add this tab to tracking
+    console.log(`[MindfulFeed] User switched to new ${platform} tab ${activeInfo.tabId}, adding to tracking...`);
+    await addTabToTracking(activeInfo.tabId, platform);
+  } catch (error) {
+    console.error('[MindfulFeed] Error in tab activation handler:', error);
+  }
+});
 
 async function ensureInjected(tabId) {
   // If the tab existed before the extension was loaded, declared content_scripts won't be injected.
@@ -389,14 +508,36 @@ function transformYouTubeDataForAnalysis(videos) {
 // AI-powered analysis with fallback to heuristics
 async function generateSessionBreakdown(raw, durationMs, endedAtMs) {
   try {
-    // Determine platform and transform data if needed
-    const platform = raw?.platform || 'instagram';
-    let postsToAnalyze = raw?.posts || [];
+    // Handle both old single-platform and new multi-platform formats
+    let postsToAnalyze = [];
 
-    if (platform === 'youtube' && raw?.videos) {
-      // YouTube session: use videos instead of posts
-      console.log(`[MindfulFeed] YouTube session detected, transforming ${raw.videos.length} videos for analysis`);
-      postsToAnalyze = transformYouTubeDataForAnalysis(raw.videos);
+    if (raw?.platforms) {
+      // New multi-platform format: merge all platforms' data
+      console.log('[MindfulFeed] Multi-platform session detected');
+
+      // Collect Instagram posts
+      if (raw.platforms.instagram?.posts) {
+        console.log(`[MindfulFeed] Found ${raw.platforms.instagram.posts.length} Instagram posts`);
+        postsToAnalyze.push(...raw.platforms.instagram.posts);
+      }
+
+      // Collect and transform YouTube videos
+      if (raw.platforms.youtube?.videos) {
+        console.log(`[MindfulFeed] Found ${raw.platforms.youtube.videos.length} YouTube videos, transforming for analysis`);
+        const transformedVideos = transformYouTubeDataForAnalysis(raw.platforms.youtube.videos);
+        postsToAnalyze.push(...transformedVideos);
+      }
+
+      console.log(`[MindfulFeed] Total items to analyze: ${postsToAnalyze.length}`);
+    } else {
+      // Old single-platform format
+      const platform = raw?.platform || 'instagram';
+      if (platform === 'youtube' && raw?.videos) {
+        console.log(`[MindfulFeed] YouTube session (old format), transforming ${raw.videos.length} videos for analysis`);
+        postsToAnalyze = transformYouTubeDataForAnalysis(raw.videos);
+      } else {
+        postsToAnalyze = raw?.posts || [];
+      }
     }
 
     // Check if we have incremental analysis results
@@ -501,32 +642,38 @@ async function start() {
 
   // Clear only incremental analysis when starting a new session (keep session history)
   console.clear(); // Clear console logs
-  console.log('[Service Worker] ===== NEW SESSION STARTED =====');
+  console.log('[Service Worker] ===== NEW SESSION STARTED (MULTI-TAB TRACKING ENABLED) =====');
+  console.log(`[Service Worker] Initial platform: ${platform} (tab ${tab.id})`);
+  console.log('[Service Worker] Switch to other Instagram/YouTube tabs during the session to track them automatically!');
   console.log('[Service Worker] Clearing incremental analysis for fresh start (keeping session history)');
   await chrome.storage.local.remove([INCREMENTAL_ANALYSIS_KEY]);
 
+  // Initialize session metadata with multi-tab structure
   await setSessionMeta({
     sessionId: sid,
-    tabId: tab.id,
-    platform,
+    trackedTabs: [
+      {
+        tabId: tab.id,
+        platform,
+        addedAt: next.startedAt
+      }
+    ],
     acceptFinalizeUntil: 0
   });
 
-  // initialize raw session container (use appropriate field for platform)
+  // Initialize raw session container with multi-platform structure
   const rawSessionInit = {
     sessionId: sid,
     startedAt: next.startedAt,
-    platform,
-    pageUrl: null,
-    activeKey: null
+    platforms: {
+      [platform]: {
+        [platform === 'youtube' ? 'videos' : 'posts']: [],
+        firstSeenAt: next.startedAt,
+        pageUrl: null,
+        activeKey: null
+      }
+    }
   };
-
-  // Add platform-specific field
-  if (platform === 'youtube') {
-    rawSessionInit.videos = [];
-  } else {
-    rawSessionInit.posts = [];
-  }
 
   await setRawSession(rawSessionInit);
 
@@ -551,20 +698,32 @@ async function stop() {
   // Mark a short window where we still accept the final raw snapshot even after isTracking becomes false.
   const meta = (await getSessionMeta()) || {};
   const acceptFinalizeUntil = getNow() + 5000;
+
+  // Preserve tracked tabs array in metadata
   await setSessionMeta({
-    sessionId: meta.sessionId,
-    tabId: meta.tabId,
-    platform: meta.platform,
+    ...meta,
     acceptFinalizeUntil
   });
 
   // Store timer state immediately (UI responsiveness)
   await setState(next);
 
-  // Tell the original tab (Instagram/YouTube) to finalize and push last dwell snapshot
-  if (meta && meta.tabId) {
-    await signalContentToTab(meta.tabId, "STOP", {});
+  // Tell ALL tracked tabs to finalize and push last snapshot
+  const trackedTabs = meta.trackedTabs || [];
+  console.log(`[MindfulFeed] Sending STOP signal to ${trackedTabs.length} tracked tab(s)...`);
+
+  if (trackedTabs.length > 0) {
+    // Send STOP to all tracked tabs
+    for (const trackedTab of trackedTabs) {
+      try {
+        await signalContentToTab(trackedTab.tabId, "STOP", {});
+        console.log(`[MindfulFeed] ✓ Sent STOP to ${trackedTab.platform} tab ${trackedTab.tabId}`);
+      } catch (error) {
+        console.warn(`[MindfulFeed] Failed to signal tab ${trackedTab.tabId}:`, error);
+      }
+    }
   } else {
+    // Fallback to old behavior (broadcast STOP)
     await signalContent("STOP", {});
   }
 
@@ -609,7 +768,7 @@ async function stop() {
 async function processSessionInBackground(meta, endedAt, durationMs) {
   console.log('[MindfulFeed] Starting background session processing...');
 
-  // Give the content script a brief moment to send its final snapshot
+  // Give content scripts a brief moment to send their final snapshots
   await new Promise((r) => setTimeout(r, 500));
 
   // Update status
@@ -622,29 +781,62 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
 
   // Read raw session snapshot (best-effort)
   const raw = await getRawSession();
-  const platform = raw?.platform || 'instagram';
-  const itemCount = platform === 'youtube'
-    ? (raw?.videos?.length || 0)
-    : (raw?.posts?.length || 0);
-  const itemType = platform === 'youtube' ? 'videos' : 'posts';
 
-  console.log(`[MindfulFeed] Analyzing ${itemCount} ${itemType}...`);
-  console.log('[MindfulFeed] Raw session data:', {
-    platform,
-    itemCount,
-    hasVideos: !!raw?.videos,
-    hasPosts: !!raw?.posts,
-    videosLength: raw?.videos?.length,
-    postsLength: raw?.posts?.length,
+  // Handle both old format (single platform) and new format (multi-platform)
+  let platforms = {};
+  let primaryPlatform = 'instagram';
+
+  if (raw?.platforms) {
+    // New multi-platform format
+    platforms = raw.platforms;
+    // Determine primary platform (first one with data, or first tracked)
+    const trackedTabs = meta.trackedTabs || [];
+    if (trackedTabs.length > 0) {
+      primaryPlatform = trackedTabs[0].platform;
+    } else {
+      // Fallback: first platform with data
+      primaryPlatform = Object.keys(platforms)[0] || 'instagram';
+    }
+  } else if (raw) {
+    // Old single-platform format - migrate on the fly
+    const oldPlatform = raw.platform || 'instagram';
+    primaryPlatform = oldPlatform;
+    platforms[oldPlatform] = {
+      [oldPlatform === 'youtube' ? 'videos' : 'posts']: oldPlatform === 'youtube' ? raw.videos : raw.posts,
+      firstSeenAt: raw.startedAt,
+      pageUrl: raw.pageUrl
+    };
+  }
+
+  // Count total items across all platforms
+  let totalItems = 0;
+  let platformSummary = [];
+
+  for (const [platform, data] of Object.entries(platforms)) {
+    const itemCount = platform === 'youtube'
+      ? (data.videos?.length || 0)
+      : (data.posts?.length || 0);
+    totalItems += itemCount;
+    if (itemCount > 0) {
+      platformSummary.push(`${itemCount} ${platform === 'youtube' ? 'videos' : 'posts'} (${platform})`);
+    }
+  }
+
+  const summaryText = platformSummary.length > 0 ? platformSummary.join(', ') : 'no items';
+  console.log(`[MindfulFeed] Analyzing ${totalItems} items: ${summaryText}`);
+  console.log('[MindfulFeed] Multi-platform session data:', {
+    platforms: Object.keys(platforms),
+    totalItems,
+    primaryPlatform,
     sessionId: raw?.sessionId
   });
 
   // Update status
   await setProcessingStatus({
     isProcessing: true,
-    step: `Analyzing ${itemCount} ${itemType} with AI...`,
+    step: `Analyzing ${totalItems} items with AI...`,
     progress: 30,
-    itemCount,
+    itemCount: totalItems,
     startedAt: Date.now()
   });
 
@@ -667,15 +859,25 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   const todaySessionCount = sessionCounts[dayKey] || 1;
 
   // Store session analytics for Summary page
-  // IMPORTANT: Use raw.platform instead of meta.platform because the content script
-  // provides the authoritative platform (handles cases where user switches platforms mid-session)
-  const actualPlatform = raw?.platform || meta.platform || 'instagram';
+  // For multi-platform sessions, use primary platform (first tracked tab)
+  // For single-platform sessions, use that platform
+  const actualPlatform = primaryPlatform;
+
+  // List all platforms used in this session
+  const platformsUsed = Object.keys(platforms).filter(p => {
+    const itemCount = p === 'youtube'
+      ? (platforms[p].videos?.length || 0)
+      : (platforms[p].posts?.length || 0);
+    return itemCount > 0;
+  });
 
   const session = {
     sessionId: meta.sessionId,
     endedAt,
     durationMs,
-    platform: actualPlatform,
+    platform: actualPlatform,  // Primary platform for display
+    platforms: platformsUsed,  // All platforms used (for multi-platform sessions)
+    isMultiPlatform: platformsUsed.length > 1,
     topics: breakdown.topicMs,
     emotions: breakdown.emotionMs,
     perTopicEmotions: breakdown.perTopicEmotions,
@@ -862,21 +1064,99 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         return;
       }
 
-      // Log what we're receiving
-      const platform = payload.platform || 'unknown';
+      // Detect platform from payload
+      const platform = payload.platform || (payload.videos ? 'youtube' : 'instagram');
       const itemCount = platform === 'youtube'
         ? (payload.videos?.length || 0)
         : (payload.posts?.length || 0);
       console.log(`[Service Worker] Received ${payload.finalize ? 'FINAL' : 'update'} from ${platform}: ${itemCount} items`);
 
-      // Merge shallowly (keep latest snapshot)
-      await setRawSession(payload);
+      // Get existing raw session
+      let raw = await getRawSession();
 
-      // If this is the final snapshot, stop accepting further updates
-      if (payload.finalize && meta && meta.sessionId === payload.sessionId) {
-        console.log('[Service Worker] Final snapshot received, closing finalize window');
-        await setSessionMeta({ sessionId: meta.sessionId, tabId: meta.tabId, platform: meta.platform, acceptFinalizeUntil: 0 });
+      // Handle migration from old format to new multi-platform format
+      if (raw && !raw.platforms) {
+        console.log('[Service Worker] Migrating raw session to multi-platform format...');
+        const oldPlatform = raw.platform || 'instagram';
+        const platforms = {};
+
+        if (oldPlatform === 'youtube' && raw.videos) {
+          platforms.youtube = {
+            videos: raw.videos,
+            firstSeenAt: raw.startedAt,
+            pageUrl: raw.pageUrl,
+            activeKey: raw.activeKey
+          };
+        } else if (oldPlatform === 'instagram' && raw.posts) {
+          platforms.instagram = {
+            posts: raw.posts,
+            firstSeenAt: raw.startedAt,
+            pageUrl: raw.pageUrl,
+            activeKey: raw.activeKey
+          };
+        }
+
+        raw = {
+          sessionId: raw.sessionId,
+          startedAt: raw.startedAt,
+          platforms
+        };
       }
+
+      // Ensure platforms structure exists
+      if (!raw || !raw.platforms) {
+        raw = {
+          sessionId: payload.sessionId,
+          startedAt: payload.startedAt || getNow(),
+          platforms: {}
+        };
+      }
+
+      // Update platform-specific data
+      if (platform === 'youtube') {
+        raw.platforms.youtube = {
+          videos: payload.videos || [],
+          firstSeenAt: raw.platforms.youtube?.firstSeenAt || getNow(),
+          pageUrl: payload.pageUrl || null,
+          activeKey: payload.activeKey || null
+        };
+      } else if (platform === 'instagram') {
+        raw.platforms.instagram = {
+          posts: payload.posts || [],
+          firstSeenAt: raw.platforms.instagram?.firstSeenAt || getNow(),
+          pageUrl: payload.pageUrl || null,
+          activeKey: payload.activeKey || null
+        };
+      }
+
+      // Mark if this is final snapshot for this platform
+      if (payload.finalize) {
+        if (!raw.platforms[platform]) raw.platforms[platform] = {};
+        raw.platforms[platform].finalized = true;
+        console.log(`[Service Worker] Platform ${platform} finalized`);
+      }
+
+      await setRawSession(raw);
+
+      // If this is a final snapshot, check if ALL tracked platforms are finalized
+      if (payload.finalize && meta && meta.sessionId === payload.sessionId) {
+        const trackedTabs = meta.trackedTabs || [];
+        const trackedPlatforms = new Set(trackedTabs.map(t => t.platform));
+
+        let allFinalized = true;
+        for (const p of trackedPlatforms) {
+          if (!raw.platforms[p]?.finalized) {
+            allFinalized = false;
+            break;
+          }
+        }
+
+        if (allFinalized) {
+          console.log('[Service Worker] All platforms finalized, closing finalize window');
+          await setSessionMeta({ ...meta, acceptFinalizeUntil: 0 });
+        }
+      }
+
       sendResponse({ ok: true });
       return;
     }

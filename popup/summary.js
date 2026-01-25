@@ -844,13 +844,13 @@ async function loadDashboard() {
         const perPostAI = fullAnalysis?.perPostAnalysis || [];
         const hasAIResults = perPostAI.length > 0;
 
-        // Get items (posts or videos) based on platform
-        const rawPlatform = raw.platform || 'instagram';
-        const items = rawPlatform === 'youtube' ? (raw.videos || []) : (raw.posts || []);
+        // Get items (posts or videos) - handles both single and multi-platform sessions
+        const items = getSessionItems(sessionResponse);
 
         const topPosts = items.slice(0, 30).map((item, index) => {
-          // For YouTube videos, construct caption from title/description
-          const caption = rawPlatform === 'youtube'
+          // Detect if item is a YouTube video (has videoId) or Instagram post
+          const isVideo = !!item.videoId;
+          const caption = isVideo
             ? `${item.title || ''}\n${item.description || ''}`
             : item.caption;
 
@@ -869,11 +869,8 @@ async function loadDashboard() {
           };
         });
 
-        // Calculate total items based on platform
-        const platform = raw.platform || 'instagram';
-        const totalItems = platform === 'youtube'
-          ? (raw.videos || []).length
-          : (raw.posts || []).length;
+        // Calculate total items across all platforms
+        const totalItems = getSessionItemCount(sessionResponse);
 
         const sessionData = {
           sessionId: raw.sessionId,
@@ -982,6 +979,39 @@ function formatTime(timestamp) {
   return `${hours}:${minutesStr} ${ampm}`;
 }
 
+// Helper functions for multi-platform session data
+function getSessionItems(session) {
+  // Extract all items (posts + videos) from session, handling both old and new formats
+  const raw = session.raw;
+  if (!raw) return [];
+
+  let allItems = [];
+
+  // New multi-platform format
+  if (raw.platforms) {
+    if (raw.platforms.instagram?.posts) {
+      allItems.push(...raw.platforms.instagram.posts);
+    }
+    if (raw.platforms.youtube?.videos) {
+      allItems.push(...raw.platforms.youtube.videos);
+    }
+  } else {
+    // Old single-platform format
+    const platform = raw.platform || session.platform || 'instagram';
+    if (platform === 'youtube' && raw.videos) {
+      allItems = raw.videos;
+    } else if (raw.posts) {
+      allItems = raw.posts;
+    }
+  }
+
+  return allItems;
+}
+
+function getSessionItemCount(session) {
+  return getSessionItems(session).length;
+}
+
 function formatDuration(ms) {
   const totalMinutes = Math.round(ms / 60000);
   if (totalMinutes < 1) return "< 1 min";
@@ -1018,11 +1048,15 @@ function getTopicDisplayName(topic) {
 
 function getSessionDescription(session) {
   const topic = getDominantKey(session.topics);
-  const isYouTube = session.platform === 'youtube';
-  const itemCount = isYouTube
-    ? (session.raw?.videos?.length || 0)
-    : (session.raw?.posts?.length || 0);
-  const itemType = isYouTube ? 'videos' : 'posts';
+  const itemCount = getSessionItemCount(session);
+
+  // Determine item type label
+  let itemType = 'posts';
+  if (session.isMultiPlatform) {
+    itemType = 'videos & posts';
+  } else if (session.platform === 'youtube') {
+    itemType = 'videos';
+  }
 
   const descriptions = {
     'Social': `Scrolled through ${itemCount} social ${itemType}`,
@@ -1208,11 +1242,15 @@ function openSessionModal(session) {
   modalTitle.style.color = topicColor;
 
   const sessionDate = new Date(session.endedAt).toLocaleString();
-  const isYouTube = session.platform === 'youtube';
-  const itemCount = isYouTube
-    ? (session.raw?.videos?.length || 0)
-    : (session.raw?.posts?.length || 0);
-  const itemLabel = isYouTube ? 'Videos' : 'Posts';
+  const itemCount = getSessionItemCount(session);
+
+  // Determine item label
+  let itemLabel = 'Posts';
+  if (session.isMultiPlatform) {
+    itemLabel = 'Videos & Posts';
+  } else if (session.platform === 'youtube') {
+    itemLabel = 'Videos';
+  }
 
   modalSubtitle.innerHTML = `
     <span><strong>Time:</strong> ${sessionDate}</span>
@@ -1241,35 +1279,35 @@ function renderSessionPosts(session) {
   const postsGrid = document.getElementById('postsGrid');
   if (!postsGrid) return;
 
-  // Handle both Instagram posts and YouTube videos
-  const isYouTube = session.platform === 'youtube';
-  const items = isYouTube ? (session.raw?.videos || []) : (session.raw?.posts || []);
-  const itemLabel = isYouTube ? 'Video' : 'Post';
+  // Get all items (posts and videos) from session
+  const items = getSessionItems(session);
   const perPostAI = session.fullAnalysis?.perPostAnalysis || [];
   const hasAIResults = perPostAI.length > 0;
 
   console.log('[Modal] Rendering session:', {
     platform: session.platform,
-    isYouTube,
+    isMultiPlatform: session.isMultiPlatform,
+    platforms: session.platforms,
     hasRaw: !!session.raw,
-    hasVideos: !!session.raw?.videos,
-    hasPosts: !!session.raw?.posts,
-    videosLength: session.raw?.videos?.length,
-    postsLength: session.raw?.posts?.length,
     itemsLength: items.length,
     sessionId: session.sessionId,
-    rawKeys: session.raw ? Object.keys(session.raw) : []
+    rawStructure: session.raw?.platforms ? 'multi-platform' : 'single-platform'
   });
 
   if (items.length === 0) {
-    console.warn('[Modal] No items found for', itemLabel, 'session. Raw data:', session.raw);
-    postsGrid.innerHTML = `<p style="color: var(--muted); text-align: center; padding: 20px;">No ${itemLabel.toLowerCase()}s tracked in this session.</p>`;
+    const itemType = session.isMultiPlatform ? 'items' : (session.platform === 'youtube' ? 'videos' : 'posts');
+    console.warn('[Modal] No items found for session. Raw data:', session.raw);
+    postsGrid.innerHTML = `<p style="color: var(--muted); text-align: center; padding: 20px;">No ${itemType} tracked in this session.</p>`;
     return;
   }
 
   postsGrid.innerHTML = '';
 
   items.forEach((item, index) => {
+    // Detect if this item is a YouTube video or Instagram post
+    const isVideo = !!item.videoId;
+    const itemLabel = isVideo ? 'Video' : 'Post';
+
     // Get AI analysis for this item
     const itemAnalysis = hasAIResults && perPostAI[index]
       ? perPostAI[index]
@@ -1289,10 +1327,10 @@ function renderSessionPosts(session) {
     let imageHtml;
     if (item.imageUrl) {
       imageHtml = `<img src="${item.imageUrl}" alt="${itemLabel} ${index + 1}" />`;
-    } else if (isYouTube && item.thumbnail) {
+    } else if (isVideo && item.thumbnail) {
       imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" />`;
     } else {
-      imageHtml = isYouTube ? '🎥' : '📷';
+      imageHtml = isVideo ? '🎥' : '📷';
     }
 
     // Topic and emotion tags
@@ -1304,12 +1342,12 @@ function renderSessionPosts(session) {
     const topicColor = getTopicColor(topic);
 
     // For YouTube videos, show title if available
-    const captionText = isYouTube && item.title
+    const captionText = isVideo && item.title
       ? item.title
       : (item.caption || 'No caption');
 
     // For YouTube videos, show description/summary below title
-    const descriptionText = isYouTube && item.description
+    const descriptionText = isVideo && item.description
       ? item.description
       : '';
 
