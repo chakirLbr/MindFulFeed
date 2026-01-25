@@ -777,12 +777,23 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   console.log('[MindfulFeed] Background session processing complete');
 
   // Open reflection page after analysis completes
+  // First check if a reflection page is already open to avoid duplicates
   try {
-    await chrome.tabs.create({
-      url: chrome.runtime.getURL('popup/reflection.html'),
-      active: true
-    });
-    console.log('[MindfulFeed] Reflection page opened');
+    const reflectionUrl = chrome.runtime.getURL('popup/reflection.html');
+    const existingTabs = await chrome.tabs.query({ url: reflectionUrl });
+
+    if (existingTabs.length > 0) {
+      // Reflection page already open - just focus it
+      console.log('[MindfulFeed] Reflection page already open, focusing existing tab');
+      await chrome.tabs.update(existingTabs[0].id, { active: true });
+    } else {
+      // Open new reflection page
+      await chrome.tabs.create({
+        url: reflectionUrl,
+        active: true
+      });
+      console.log('[MindfulFeed] Reflection page opened');
+    }
   } catch (error) {
     console.error('[MindfulFeed] Failed to open reflection page:', error);
   }

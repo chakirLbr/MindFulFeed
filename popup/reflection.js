@@ -213,8 +213,23 @@ async function loadSessionData() {
 
   // Update summary
   document.getElementById('sessionDuration').textContent = formatTime(sessionData.durationMs);
-  document.getElementById('sessionPlatform').textContent = (sessionData.platform || 'Instagram').charAt(0).toUpperCase() + (sessionData.platform || 'Instagram').slice(1);
-  document.getElementById('postsViewed').textContent = sessionData.raw?.posts?.length || 0;
+
+  const platform = sessionData.platform || 'instagram';
+  const platformName = platform.charAt(0).toUpperCase() + platform.slice(1);
+  document.getElementById('sessionPlatform').textContent = platformName;
+
+  // Count posts/videos based on platform
+  const itemCount = platform === 'youtube'
+    ? (sessionData.raw?.videos?.length || 0)
+    : (sessionData.raw?.posts?.length || 0);
+
+  document.getElementById('postsViewed').textContent = itemCount;
+
+  // Update label for posts/videos
+  const postsLabel = document.querySelector('.stat:nth-child(3) .stat-label');
+  if (postsLabel) {
+    postsLabel.textContent = platform === 'youtube' ? 'Videos Viewed' : 'Posts Viewed';
+  }
 
   // Show achievements if any
   if (sessionData.newAchievements && sessionData.newAchievements.length > 0) {
