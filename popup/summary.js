@@ -1115,6 +1115,14 @@ function renderTodaysSessions(sessionHistory) {
   container.innerHTML = '';
 
   todaySessions.forEach(session => {
+    // Add defaults for old sessions that don't have multi-platform fields
+    if (session.isMultiPlatform === undefined) {
+      session.isMultiPlatform = false;
+    }
+    if (!session.platforms) {
+      session.platforms = [session.platform || 'instagram'];
+    }
+
     console.log('[Summary] Rendering session:', session.sessionId, session.platform, session.isMultiPlatform);
     const topic = getDominantKey(session.topics);
     const emotion = getDominantKey(session.emotions);
@@ -1213,6 +1221,14 @@ function renderYesterdaysSessions(sessionHistory) {
   container.innerHTML = '';
 
   yesterdaySessions.forEach(session => {
+    // Add defaults for old sessions that don't have multi-platform fields
+    if (session.isMultiPlatform === undefined) {
+      session.isMultiPlatform = false;
+    }
+    if (!session.platforms) {
+      session.platforms = [session.platform || 'instagram'];
+    }
+
     const topic = getDominantKey(session.topics);
     const emotion = getDominantKey(session.emotions);
     const topicClass = topic ? topic.toLowerCase() : 'social';
@@ -1352,6 +1368,14 @@ function renderSessionPosts(session) {
   const perPostAI = session.fullAnalysis?.perPostAnalysis || [];
   const hasAIResults = perPostAI.length > 0;
 
+  // Add defaults for old sessions that don't have multi-platform fields
+  if (session.isMultiPlatform === undefined) {
+    session.isMultiPlatform = false;
+  }
+  if (!session.platforms) {
+    session.platforms = [session.platform || 'instagram'];
+  }
+
   console.log('[Modal] Rendering session:', {
     platform: session.platform,
     isMultiPlatform: session.isMultiPlatform,
@@ -1391,13 +1415,14 @@ function renderSessionPosts(session) {
       ? `${dwellSeconds}s`
       : `${Math.floor(dwellSeconds / 60)}m ${dwellSeconds % 60}s`;
 
-    // Image section - handle both post images and video thumbnails
+    // Image section - use emojis to avoid CORS issues with Instagram CDN
+    // Instagram images are blocked by CORS policy, so we use emoji placeholders
     let imageHtml;
-    if (item.imageUrl) {
-      imageHtml = `<img src="${item.imageUrl}" alt="${itemLabel} ${index + 1}" />`;
-    } else if (isVideo && item.thumbnail) {
-      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" />`;
+    if (isVideo && item.thumbnail) {
+      // YouTube thumbnails work fine
+      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='🎥'" />`;
     } else {
+      // Instagram posts - use emoji to avoid CORS errors
       imageHtml = isVideo ? '🎥' : '📷';
     }
 
