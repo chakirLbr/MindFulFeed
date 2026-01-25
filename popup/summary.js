@@ -845,7 +845,7 @@ async function loadDashboard() {
         const hasAIResults = perPostAI.length > 0;
 
         // Get items (posts or videos) - handles both single and multi-platform sessions
-        const items = getSessionItems(sessionResponse);
+        const items = getSessionItems(session);
 
         const topPosts = items.slice(0, 30).map((item, index) => {
           // Detect if item is a YouTube video (has videoId) or Instagram post
@@ -870,15 +870,15 @@ async function loadDashboard() {
         });
 
         // Calculate total items across all platforms
-        const totalItems = getSessionItemCount(sessionResponse);
+        const totalItems = getSessionItemCount(session);
 
         const sessionData = {
           sessionId: raw.sessionId,
-          platform: platform,
+          platform: session.platform || 'instagram',
           startedAt: raw.startedAt,
           endedAt: session.endedAt,
           durationMinutes: Math.round(session.durationMs / 60000),
-          pageUrl: raw.pageUrl,
+          pageUrl: raw.pageUrl || (raw.platforms ? Object.values(raw.platforms)[0]?.pageUrl : null),
           totalPosts: totalItems,
           analysisMethod: fullAnalysis?.analysisMethod || 'heuristic',
           overallCategories: fullAnalysis ? {
