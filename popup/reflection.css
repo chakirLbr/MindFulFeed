@@ -8,7 +8,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #4FACB0 0%, #3D8C87 100%);
+  background: linear-gradient(135deg, #A0E8EC 0%, #95DDD9 100%);
   min-height: 100vh;
   color: #2d3748;
 }
@@ -134,7 +134,7 @@ body {
 
 /* Session Summary */
 .session-summary {
-  background: linear-gradient(135deg, #4FACB0 0%, #3D8C87 100%);
+  background: linear-gradient(135deg, #5CBCC1 0%, #4EACAA 100%);
   color: white;
 }
 
