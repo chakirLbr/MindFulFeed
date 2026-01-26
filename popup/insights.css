@@ -1,0 +1,483 @@
+/* Insights Page Styles */
+
+:root {
+  --bg-dark: #1a1a1a;
+  --bg-card: #242424;
+  --bg-hover: #2a2a2a;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #666666;
+  --border-color: #333333;
+  --accent-blue: #4a9eff;
+  --accent-purple: #9b59b6;
+  --accent-green: #2ecc71;
+  --accent-orange: #f39c12;
+  --accent-red: #e74c3c;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Header */
+.topbar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo {
+  width: 40px;
+  height: 40px;
+}
+
+.name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sub {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.btn {
+  padding: 0.625rem 1.25rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn:hover {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  transform: translateY(-1px);
+}
+
+/* Main Container */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+/* Stats Overview */
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-item {
+  background: var(--bg-card);
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.stat-icon {
+  font-size: 2.5rem;
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+/* Card Sections */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  box-shadow: var(--shadow);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+/* Insights Container */
+.insights-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.insight-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--bg-hover);
+  border-radius: 10px;
+  border-left: 4px solid var(--accent-blue);
+  transition: transform 0.2s;
+}
+
+.insight-card:hover {
+  transform: translateX(4px);
+}
+
+.insight-card.insight-positive {
+  border-left-color: var(--accent-green);
+}
+
+.insight-card.insight-concern {
+  border-left-color: var(--accent-orange);
+}
+
+.insight-card.insight-warning {
+  border-left-color: var(--accent-red);
+}
+
+.insight-card.insight-suggestion {
+  border-left-color: var(--accent-purple);
+}
+
+.insight-icon {
+  font-size: 1.75rem;
+  flex-shrink: 0;
+}
+
+.insight-content {
+  flex: 1;
+}
+
+.insight-message {
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.insight-action {
+  padding: 0.5rem 1rem;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  font-family: inherit;
+}
+
+.insight-action:hover {
+  opacity: 0.9;
+}
+
+/* Trends Grid */
+.trends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.trend-card {
+  background: var(--bg-hover);
+  padding: 1.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.trend-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.trend-header h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.trend-badge {
+  padding: 0.375rem 0.75rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.trend-badge.trend-improving {
+  color: var(--accent-green);
+}
+
+.trend-badge.trend-declining {
+  color: var(--accent-red);
+}
+
+.trend-badge.trend-stable {
+  color: var(--text-secondary);
+}
+
+.trend-chart {
+  margin-bottom: 1rem;
+}
+
+.trend-chart canvas {
+  width: 100%;
+  height: 150px;
+  border-radius: 8px;
+}
+
+.trend-average {
+  text-align: center;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+}
+
+.trend-average span {
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+/* Mood Chart */
+.mood-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mood-bar {
+  display: grid;
+  grid-template-columns: 140px 1fr 60px;
+  gap: 1rem;
+  align-items: center;
+}
+
+.mood-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mood-emoji {
+  font-size: 1.5rem;
+}
+
+.mood-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.mood-bar-container {
+  background: var(--bg-dark);
+  border-radius: 8px;
+  height: 32px;
+  overflow: hidden;
+}
+
+.mood-bar-fill {
+  height: 100%;
+  transition: width 0.5s ease-out;
+  border-radius: 8px;
+}
+
+.mood-percentage {
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.mood-insight {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--bg-hover);
+  border-radius: 10px;
+  margin-top: 1rem;
+}
+
+.mood-insight-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.mood-insight p {
+  flex: 1;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Reflections List */
+.reflections-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.reflection-card {
+  background: var(--bg-hover);
+  padding: 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s;
+}
+
+.reflection-card:hover {
+  transform: translateX(4px);
+}
+
+.reflection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.reflection-date {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.reflection-mood {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.reflection-scores {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.score-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.score-label {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.score-value {
+  font-weight: 600;
+  color: var(--accent-blue);
+}
+
+.reflection-notes {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  border-left: 3px solid var(--accent-purple);
+}
+
+/* Empty Messages */
+.empty-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.empty-message p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .topbar {
+    padding: 1rem;
+  }
+
+  .stats-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .trends-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mood-bar {
+    grid-template-columns: 120px 1fr 50px;
+    gap: 0.75rem;
+  }
+
+  .reflection-scores {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}

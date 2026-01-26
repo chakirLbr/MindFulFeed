@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Achievements</title>
+    <link rel="stylesheet" href="achievements.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="../logo/logo-main.png" alt="MindfulFeed" />
+        <div>
+          <div class="name">MindfulFeed</div>
+          <div class="sub">Achievements</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="backBtn" class="btn">← Back</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Overall Progress -->
+      <section class="card progress-card">
+        <div class="progress-header">
+          <div class="level-badge">
+            <div class="level-number" id="levelNumber">1</div>
+            <div class="level-label">Level</div>
+          </div>
+          <div class="progress-info">
+            <div class="progress-title">
+              <span id="totalPoints">0</span> Total Points
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text">
+              <span id="currentPoints">0</span> / <span id="nextLevelPoints">100</span> to next level
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Achievement Stats -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-value" id="unlockedCount">0</div>
+          <div class="stat-label">Unlocked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🔒</div>
+          <div class="stat-value" id="lockedCount">0</div>
+          <div class="stat-label">Locked</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📈</div>
+          <div class="stat-value" id="completionPercent">0%</div>
+          <div class="stat-label">Progress</div>
+        </div>
+      </section>
+
+      <!-- Filter Tabs -->
+      <section class="filter-tabs">
+        <button class="tab active" data-filter="all">All</button>
+        <button class="tab" data-filter="unlocked">Unlocked</button>
+        <button class="tab" data-filter="locked">Locked</button>
+        <button class="tab" data-filter="awareness">Awareness</button>
+        <button class="tab" data-filter="control">Control</button>
+        <button class="tab" data-filter="reflection">Reflection</button>
+      </section>
+
+      <!-- Achievements Grid -->
+      <section class="achievements-grid" id="achievementsGrid">
+        <!-- Achievements will be dynamically loaded here -->
+      </section>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-icon">🎯</div>
+        <h3>Start Your Journey!</h3>
+        <p>Complete sessions and reflections to unlock achievements.</p>
+      </div>
+    </main>
+
+    <script src="achievements.js"></script>
+  </body>
+</html>
