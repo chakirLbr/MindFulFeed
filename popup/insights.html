@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Insights</title>
+    <link rel="stylesheet" href="insights.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="../logo/logo-main.png" alt="MindfulFeed" />
+        <div>
+          <div class="name">MindfulFeed</div>
+          <div class="sub">Personal Insights</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="backBtn" class="btn">← Back</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Reflection Stats -->
+      <section class="stats-overview">
+        <div class="stat-item">
+          <div class="stat-icon">📝</div>
+          <div class="stat-content">
+            <div class="stat-value" id="totalReflections">0</div>
+            <div class="stat-label">Reflections Completed</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-content">
+            <div class="stat-value" id="avgAwareness">-</div>
+            <div class="stat-label">Avg Awareness</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">💎</div>
+          <div class="stat-content">
+            <div class="stat-value" id="avgValue">-</div>
+            <div class="stat-label">Avg Value</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-icon">🎮</div>
+          <div class="stat-content">
+            <div class="stat-value" id="avgControl">-</div>
+            <div class="stat-label">Avg Control</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Personalized Insights -->
+      <section class="card">
+        <h2 class="section-title">💡 Personalized Insights</h2>
+        <div id="insightsContainer" class="insights-container">
+          <!-- Insights will be loaded here -->
+        </div>
+        <div id="noInsights" class="empty-message" style="display: none;">
+          <div class="empty-icon">🌟</div>
+          <p>Complete more sessions to get personalized insights!</p>
+        </div>
+      </section>
+
+      <!-- Trends Charts -->
+      <section class="card">
+        <h2 class="section-title">📈 Trends (Last 10 Sessions)</h2>
+        <div class="trends-grid">
+          <!-- Awareness Trend -->
+          <div class="trend-card">
+            <div class="trend-header">
+              <h3>Awareness</h3>
+              <span class="trend-badge" id="awarenessTrend">-</span>
+            </div>
+            <div class="trend-chart">
+              <canvas id="awarenessChart"></canvas>
+            </div>
+            <div class="trend-average">Average: <span id="awarenessAvg">-</span>/5</div>
+          </div>
+
+          <!-- Value Trend -->
+          <div class="trend-card">
+            <div class="trend-header">
+              <h3>Value</h3>
+              <span class="trend-badge" id="valueTrend">-</span>
+            </div>
+            <div class="trend-chart">
+              <canvas id="valueChart"></canvas>
+            </div>
+            <div class="trend-average">Average: <span id="valueAvg">-</span>/5</div>
+          </div>
+
+          <!-- Control Trend -->
+          <div class="trend-card">
+            <div class="trend-header">
+              <h3>Control</h3>
+              <span class="trend-badge" id="controlTrend">-</span>
+            </div>
+            <div class="trend-chart">
+              <canvas id="controlChart"></canvas>
+            </div>
+            <div class="trend-average">Average: <span id="controlAvg">-</span>/5</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mood Distribution -->
+      <section class="card">
+        <h2 class="section-title">😊 How Social Media Makes You Feel</h2>
+        <div id="moodChart" class="mood-chart"></div>
+        <div id="moodInsight" class="mood-insight"></div>
+      </section>
+
+      <!-- Recent Reflections -->
+      <section class="card">
+        <h2 class="section-title">📖 Recent Reflections</h2>
+        <div id="recentReflections" class="reflections-list">
+          <!-- Recent reflections will be loaded here -->
+        </div>
+        <div id="noReflections" class="empty-message" style="display: none;">
+          <div class="empty-icon">📝</div>
+          <p>No reflections yet. Complete a session to get started!</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="insights.js"></script>
+  </body>
+</html>

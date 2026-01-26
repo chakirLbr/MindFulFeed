@@ -1273,6 +1273,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       return;
     }
 
+    if (msg.type === "GET_REFLECTION_TRENDS") {
+      const trends = await REFLECTION_SYSTEM.analyzeReflectionTrends();
+      const reflections = await REFLECTION_SYSTEM.getReflections();
+      const recent = reflections.slice(-10); // Last 10 for charts
+      sendResponse({ ok: true, data: { ...trends, recent } });
+      return;
+    }
+
     // Gamification
     if (msg.type === "GET_LEADERBOARD") {
       const daily = await getDaily();
@@ -1283,6 +1291,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const leaderboardData = await GAMIFICATION.updateLeaderboard(stats, level);
 
       sendResponse({ ok: true, ...leaderboardData });
+      return;
+    }
+
+    if (msg.type === "GET_ACHIEVEMENTS") {
+      const achievements = await GAMIFICATION.getAchievements();
+      sendResponse({ ok: true, achievements });
       return;
     }
 

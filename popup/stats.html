@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Stats & Achievements</title>
+    <link rel="stylesheet" href="stats.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="../logo/logo-main.png" alt="MindfulFeed" />
+        <div>
+          <div class="name">MindfulFeed</div>
+          <div class="sub">Stats & Achievements</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="backBtn" class="btn">← Back</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Player Card -->
+      <section class="player-card">
+        <div class="player-header">
+          <div class="player-avatar" id="playerAvatar">
+            <span id="avatarIcon">🧘</span>
+          </div>
+          <div class="player-info">
+            <h1 class="player-name" id="playerName">Loading...</h1>
+            <div class="player-level" id="playerLevel">
+              <span class="level-icon">🌱</span>
+              <span class="level-text">Novice</span>
+            </div>
+          </div>
+          <div class="player-points">
+            <div class="points-value" id="totalPoints">0</div>
+            <div class="points-label">Total Points</div>
+          </div>
+        </div>
+
+        <!-- Level Progress -->
+        <div class="level-progress">
+          <div class="progress-bar">
+            <div class="progress-fill" id="levelProgressFill" style="width: 0%"></div>
+          </div>
+          <div class="progress-text" id="levelProgressText">
+            <span id="currentProgress">0</span> / <span id="requiredProgress">50</span> to next level
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Stats -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🔥</div>
+          <div class="stat-content">
+            <div class="stat-value" id="trackingStreak">0</div>
+            <div class="stat-label">Day Streak</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📊</div>
+          <div class="stat-content">
+            <div class="stat-value" id="sessionsCompleted">0</div>
+            <div class="stat-label">Sessions Tracked</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🧘</div>
+          <div class="stat-content">
+            <div class="stat-value" id="mindfulSessions">0</div>
+            <div class="stat-label">Mindful Sessions</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div class="stat-content">
+            <div class="stat-value" id="reflectionsCompleted">0</div>
+            <div class="stat-label">Reflections</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Achievements -->
+      <section class="card">
+        <div class="section-header">
+          <h2 class="section-title">🏆 Achievements</h2>
+          <div class="achievement-filter">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="unlocked">Unlocked</button>
+            <button class="filter-btn" data-filter="locked">Locked</button>
+          </div>
+        </div>
+        <div id="achievementsGrid" class="achievements-grid">
+          <!-- Achievements will be loaded here -->
+        </div>
+        <div id="noAchievements" class="empty-message" style="display: none;">
+          <div class="empty-icon">🏆</div>
+          <p>Loading achievements...</p>
+        </div>
+      </section>
+
+      <!-- Leaderboard -->
+      <section class="card">
+        <h2 class="section-title">🌟 Leaderboard</h2>
+        <p class="section-desc">
+          Compare your progress with other MindfulFeed users (anonymous)
+        </p>
+        <div id="leaderboardContainer" class="leaderboard-container">
+          <!-- Leaderboard will be loaded here -->
+        </div>
+        <div id="noLeaderboard" class="empty-message" style="display: none;">
+          <div class="empty-icon">🌟</div>
+          <p>Loading leaderboard...</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="stats.js"></script>
+  </body>
+</html>

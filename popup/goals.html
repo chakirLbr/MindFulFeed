@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MindfulFeed | Goals & Limits</title>
+    <link rel="stylesheet" href="goals.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <img class="logo" src="../logo/logo-main.png" alt="MindfulFeed" />
+        <div>
+          <div class="name">MindfulFeed</div>
+          <div class="sub">Goals & Limits</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="backBtn" class="btn">← Back</button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Active Goals -->
+      <section class="card">
+        <div class="section-header">
+          <h2 class="section-title">📋 Your Active Goals</h2>
+          <button id="addGoalBtn" class="btn-primary">+ Add Goal</button>
+        </div>
+        <div id="activeGoalsContainer" class="goals-container">
+          <!-- Active goals will be loaded here -->
+        </div>
+        <div id="noActiveGoals" class="empty-message" style="display: none;">
+          <div class="empty-icon">🎯</div>
+          <p>No active goals yet. Start by adding a goal below!</p>
+        </div>
+      </section>
+
+      <!-- Goal Templates -->
+      <section class="card">
+        <h2 class="section-title">💡 Goal Templates</h2>
+        <p class="section-desc">
+          Choose from research-backed goals to improve your digital wellbeing
+        </p>
+        <div id="goalTemplates" class="templates-grid">
+          <!-- Templates will be loaded here -->
+        </div>
+      </section>
+
+      <!-- Today's Progress -->
+      <section class="card">
+        <h2 class="section-title">📊 Today's Progress</h2>
+        <div id="todayProgress" class="progress-container">
+          <!-- Today's progress will be loaded here -->
+        </div>
+        <div id="noProgress" class="empty-message" style="display: none;">
+          <div class="empty-icon">📈</div>
+          <p>No tracking data for today yet. Start a session to see your progress!</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Add/Edit Goal Modal -->
+    <div id="goalModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Add Goal</h3>
+          <button id="closeModal" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="goalForm">
+            <input type="hidden" id="goalId" />
+            <input type="hidden" id="goalType" />
+
+            <div class="form-group">
+              <label for="goalTitle">Goal Name</label>
+              <input type="text" id="goalTitle" required />
+            </div>
+
+            <div class="form-group">
+              <label for="goalDescription">Description (optional)</label>
+              <textarea id="goalDescription" rows="3"></textarea>
+            </div>
+
+            <div class="form-group" id="targetValueGroup">
+              <label for="targetValue">Target Value</label>
+              <div class="input-with-unit">
+                <input type="number" id="targetValue" min="1" required />
+                <span id="targetUnit" class="input-unit">minutes/day</span>
+              </div>
+              <div class="form-hint" id="targetHint"></div>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" id="cancelBtn" class="btn">Cancel</button>
+              <button type="submit" class="btn-primary">Save Goal</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="goals.js"></script>
+  </body>
+</html>
