@@ -1,18 +1,31 @@
-/* Insights Page Styles */
+/* Insights Page Styles - Light/Dark Mode */
 
 :root {
-  --bg-dark: #1a1a1a;
+  /* Light Mode (Default) */
+  --bg: #f7f8fb;
+  --bg-card: #ffffff;
+  --bg-hover: #f5f5f5;
+  --text-primary: #24313A;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border-color: rgba(36,49,58,0.10);
+  --accent-blue: #4a9eff;
+  --accent-purple: #9b59b6;
+  --accent-green: #2ecc71;
+  --accent-orange: #f39c12;
+  --accent-red: #e74c3c;
+  --shadow: 0 10px 30px rgba(36,49,58,0.12);
+}
+
+body.dark-mode {
+  /* Dark Mode */
+  --bg: #1a1a1a;
   --bg-card: #242424;
   --bg-hover: #2a2a2a;
   --text-primary: #ffffff;
   --text-secondary: #b3b3b3;
   --text-muted: #666666;
   --border-color: #333333;
-  --accent-blue: #4a9eff;
-  --accent-purple: #9b59b6;
-  --accent-green: #2ecc71;
-  --accent-orange: #f39c12;
-  --accent-red: #e74c3c;
   --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
@@ -24,10 +37,11 @@
 
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  background: var(--bg-dark);
+  background: var(--bg);
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Header */
@@ -42,6 +56,7 @@ body {
   top: 0;
   z-index: 100;
   box-shadow: var(--shadow);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .brand {
@@ -66,6 +81,12 @@ body {
   color: var(--text-secondary);
 }
 
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
 .btn {
   padding: 0.625rem 1.25rem;
   background: var(--bg-hover);
@@ -81,7 +102,30 @@ body {
 .btn:hover {
   background: var(--accent-blue);
   border-color: var(--accent-blue);
+  color: white;
   transform: translateY(-1px);
+}
+
+.theme-toggle {
+  padding: 0.625rem;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.theme-toggle:hover {
+  background: var(--accent-orange);
+  border-color: var(--accent-orange);
+  transform: scale(1.1);
 }
 
 /* Main Container */
@@ -107,7 +151,7 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: transform 0.2s, box-shadow 0.2s, background-color 0.3s ease;
 }
 
 .stat-item:hover {
@@ -144,6 +188,7 @@ body {
   padding: 2rem;
   margin-bottom: 2rem;
   box-shadow: var(--shadow);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .section-title {
@@ -167,7 +212,7 @@ body {
   background: var(--bg-hover);
   border-radius: 10px;
   border-left: 4px solid var(--accent-blue);
-  transition: transform 0.2s;
+  transition: transform 0.2s, background-color 0.3s ease;
 }
 
 .insight-card:hover {
@@ -233,6 +278,7 @@ body {
   padding: 1.5rem;
   border-radius: 10px;
   border: 1px solid var(--border-color);
+  transition: background-color 0.3s ease;
 }
 
 .trend-header {
@@ -250,7 +296,7 @@ body {
 
 .trend-badge {
   padding: 0.375rem 0.75rem;
-  background: var(--bg-dark);
+  background: var(--bg);
   border-radius: 6px;
   font-size: 0.8125rem;
   font-weight: 500;
@@ -320,7 +366,7 @@ body {
 }
 
 .mood-bar-container {
-  background: var(--bg-dark);
+  background: var(--bg);
   border-radius: 8px;
   height: 32px;
   overflow: hidden;
@@ -346,6 +392,7 @@ body {
   background: var(--bg-hover);
   border-radius: 10px;
   margin-top: 1rem;
+  transition: background-color 0.3s ease;
 }
 
 .mood-insight-icon {
@@ -371,7 +418,7 @@ body {
   padding: 1.25rem;
   border-radius: 10px;
   border: 1px solid var(--border-color);
-  transition: transform 0.2s;
+  transition: transform 0.2s, background-color 0.3s ease;
 }
 
 .reflection-card:hover {
@@ -424,7 +471,7 @@ body {
 .reflection-notes {
   margin-top: 0.75rem;
   padding: 0.75rem;
-  background: var(--bg-dark);
+  background: var(--bg);
   border-radius: 6px;
   font-size: 0.9375rem;
   color: var(--text-secondary);

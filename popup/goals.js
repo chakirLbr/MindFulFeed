@@ -1,11 +1,36 @@
 // Goals Page - Set and manage digital wellbeing goals
 // Based on behavior change theory and implementation intentions
 
+// Theme Management
+async function loadTheme() {
+  const result = await chrome.storage.local.get(['mf_theme']);
+  const theme = result.mf_theme || 'light';
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  const isDark = theme === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  const toggleBtn = document.getElementById('themeToggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = isDark ? '☀️' : '🌙';
+    toggleBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+  }
+}
+
+async function toggleTheme() {
+  const isDark = document.body.classList.contains('dark-mode');
+  const newTheme = isDark ? 'light' : 'dark';
+  await chrome.storage.local.set({ mf_theme: newTheme });
+  applyTheme(newTheme);
+}
+
 let goalTemplates = [];
 let activeGoals = [];
 let todayStats = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  await loadTheme();
   await loadGoalTemplates();
   await loadActiveGoals();
   await loadTodayProgress();
@@ -13,6 +38,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function setupEventListeners() {
+  document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+
   document.getElementById('backBtn')?.addEventListener('click', () => {
     window.location.href = 'summary.html';
   });
