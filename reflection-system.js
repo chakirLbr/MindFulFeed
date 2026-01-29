@@ -333,11 +333,16 @@ const REFLECTION_SYSTEM = (() => {
   async function checkNudges(session, analysis) {
     const nudges = [];
 
+    // Get today's session count for frequentSessions trigger
+    const todaySessionCount = await getTodaySessionCount();
+
     for (const nudge of REFLECTION_PROMPTS.nudges) {
       let shouldShow = false;
 
       if (nudge.trigger === 'longSession') {
         shouldShow = nudge.condition(session.durationMs);
+      } else if (nudge.trigger === 'frequentSessions') {
+        shouldShow = nudge.condition(todaySessionCount);
       } else if (nudge.trigger === 'negativeContent') {
         shouldShow = nudge.condition(analysis);
       } else if (nudge.trigger === 'achievement') {
@@ -345,7 +350,7 @@ const REFLECTION_SYSTEM = (() => {
       }
 
       if (shouldShow) {
-        const message = formatNudgeMessage(nudge.message, session, analysis);
+        const message = formatNudgeMessage(nudge.message, session, analysis, todaySessionCount);
         nudges.push({
           ...nudge,
           message
@@ -357,13 +362,31 @@ const REFLECTION_SYSTEM = (() => {
   }
 
   /**
+   * Get today's session count
+   */
+  async function getTodaySessionCount() {
+    const reflections = await getReflections();
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    // Count reflections from today
+    const todayReflections = reflections.filter(r => {
+      const refDate = new Date(r.timestamp);
+      const refKey = `${refDate.getFullYear()}-${String(refDate.getMonth() + 1).padStart(2, '0')}-${String(refDate.getDate()).padStart(2, '0')}`;
+      return refKey === todayKey;
+    });
+
+    return todayReflections.length + 1; // +1 for the current session
+  }
+
+  /**
    * Format nudge message with variables
    */
-  function formatNudgeMessage(template, session, analysis) {
+  function formatNudgeMessage(template, session, analysis, sessionCount) {
     const minutes = Math.round(session.durationMs / 60000);
     return template
       .replace('{minutes}', minutes)
-      .replace('{count}', session.sessionCount || 1);
+      .replace('{count}', sessionCount || 1);
   }
 
   /**
