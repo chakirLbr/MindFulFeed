@@ -299,9 +299,51 @@ function showNudges(nudges) {
     nudgeCard.className = 'card nudge-card';
     nudgeCard.innerHTML = `
       <h3>${nudge.message}</h3>
-      ${nudge.action ? `<button class="btn btn-primary nudge-action">${nudge.action}</button>` : ''}
+      ${nudge.action ? `<button class="btn btn-primary nudge-action" data-action="${nudge.action}" data-trigger="${nudge.trigger}">${nudge.action}</button>` : ''}
     `;
+
+    // Add click handler for action button
+    if (nudge.action) {
+      const actionBtn = nudgeCard.querySelector('.nudge-action');
+      actionBtn.addEventListener('click', () => handleNudgeAction(nudge));
+    }
+
     container.appendChild(nudgeCard);
+  }
+}
+
+// Handle nudge action button clicks
+function handleNudgeAction(nudge) {
+  switch (nudge.trigger) {
+    case 'longSession':
+      // Scroll to reflection form
+      document.getElementById('reflectionForm')?.scrollIntoView({ behavior: 'smooth' });
+      // Focus on first unanswered question
+      const firstSlider = document.querySelector('input[type="range"]');
+      if (firstSlider) {
+        firstSlider.focus();
+      }
+      break;
+
+    case 'frequentSessions':
+      // Scroll to mood question
+      document.getElementById('moodQuestion')?.scrollIntoView({ behavior: 'smooth' });
+      break;
+
+    case 'negativeContent':
+      // Scroll to mood question
+      document.getElementById('moodQuestion')?.scrollIntoView({ behavior: 'smooth' });
+      break;
+
+    case 'achievement':
+      // Navigate to insights page
+      window.location.href = 'insights.html';
+      break;
+
+    default:
+      // Default: scroll to reflection form
+      document.getElementById('reflectionForm')?.scrollIntoView({ behavior: 'smooth' });
+      break;
   }
 }
 

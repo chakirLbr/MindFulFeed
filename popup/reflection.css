@@ -379,4 +379,68 @@ textarea:focus {
   .form-actions {
     flex-direction: column;
   }
+
+  .nudge-card {
+    margin-bottom: 1rem;
+  }
+}
+
+/* Nudge Cards */
+#nudgesContainer {
+  margin-bottom: 2rem;
+}
+
+.nudge-card {
+  background: linear-gradient(135deg, #FFF9E6 0%, #FFF3D6 100%);
+  border: 2px solid #FFD700;
+  border-left: 6px solid #FFB800;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 12px rgba(255, 184, 0, 0.2);
+  animation: nudgeSlideIn 0.4s ease-out;
+}
+
+@keyframes nudgeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nudge-card h3 {
+  margin: 0 0 1rem 0;
+  color: #8B6914;
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.nudge-card .nudge-action {
+  background: linear-gradient(135deg, #FFB800 0%, #FF9500 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(255, 184, 0, 0.3);
+}
+
+.nudge-card .nudge-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 184, 0, 0.4);
+}
+
+.nudge-card .nudge-action:active {
+  transform: translateY(0);
 }
