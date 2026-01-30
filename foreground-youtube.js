@@ -734,12 +734,15 @@
     if (!msg || msg.type !== "MFF_CONTROL") return;
 
     if (msg.action === "START") {
+      console.log('[MindfulFeed YouTube] ✅ Received START signal from service worker');
+      console.log('[MindfulFeed YouTube] Session ID:', msg.sessionId);
       startTracking({ newSessionId: msg.sessionId, newStartedAt: msg.startedAt });
       sendResponse({ ok: true });
       return;
     }
 
     if (msg.action === "STOP") {
+      console.log('[MindfulFeed YouTube] Received STOP signal');
       stopTracking();
       sendResponse({ ok: true });
       return;
