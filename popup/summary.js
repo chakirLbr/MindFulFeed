@@ -1378,6 +1378,15 @@ function renderSessionPosts(session) {
     session.platforms = [session.platform || 'instagram'];
   }
 
+  // Check if session is from today or yesterday (for thumbnail display)
+  const now = Date.now();
+  const sessionDate = isoDate(new Date(session.endedAt));
+  const today = isoDate(new Date(now));
+  const yesterday = isoDate(new Date(now - 24 * 60 * 60 * 1000));
+  const isRecentSession = (sessionDate === today || sessionDate === yesterday);
+
+  console.log('[Modal] Session date:', sessionDate, 'Today:', today, 'Yesterday:', yesterday, 'Show thumbnails:', isRecentSession);
+
   console.log('[Modal] Rendering session:', {
     platform: session.platform,
     isMultiPlatform: session.isMultiPlatform,
@@ -1417,15 +1426,17 @@ function renderSessionPosts(session) {
       ? `${dwellSeconds}s`
       : `${Math.floor(dwellSeconds / 60)}m ${dwellSeconds % 60}s`;
 
-    // Image section - use emojis to avoid CORS issues with Instagram CDN
-    // Instagram images are blocked by CORS policy, so we use emoji placeholders
+    // Image section - show actual thumbnails for today/yesterday, emoji placeholders for older sessions
     let imageHtml;
     if (isVideo && item.thumbnail) {
-      // YouTube thumbnails work fine
-      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='🎥'" />`;
+      // YouTube thumbnails always work (no CORS issues)
+      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<span class=\\'emoji-placeholder\\'>🎥</span>'" />`;
+    } else if (isRecentSession && item.imageBase64) {
+      // Instagram posts from today/yesterday - use base64 image
+      imageHtml = `<img src="${item.imageBase64}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<span class=\\'emoji-placeholder\\'>📷</span>'" />`;
     } else {
-      // Instagram posts - use emoji to avoid CORS errors
-      imageHtml = isVideo ? '🎥' : '📷';
+      // Older sessions or missing images - use bigger emoji placeholder
+      imageHtml = `<span class="emoji-placeholder">${isVideo ? '🎥' : '📷'}</span>`;
     }
 
     // Topic and emotion tags

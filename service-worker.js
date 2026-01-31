@@ -137,6 +137,67 @@ async function addToSessionHistory(session) {
   });
 }
 
+async function cleanupOldThumbnails() {
+  const history = await getSessionHistory();
+  if (history.length === 0) return;
+
+  const now = Date.now();
+  const today = isoDate(new Date(now));
+  const yesterday = isoDate(new Date(now - 24 * 60 * 60 * 1000));
+
+  console.log('[MindfulFeed] Cleaning up thumbnails older than yesterday...');
+  console.log('[MindfulFeed] Today:', today, 'Yesterday:', yesterday);
+
+  let cleaned = 0;
+  const updatedHistory = history.map(session => {
+    const sessionDate = isoDate(new Date(session.endedAt));
+
+    // Keep thumbnails only for today and yesterday
+    if (sessionDate !== today && sessionDate !== yesterday) {
+      // Remove imageBase64 from posts to save storage
+      if (session.raw && session.raw.posts) {
+        const hadThumbnails = session.raw.posts.some(p => p.imageBase64);
+        if (hadThumbnails) {
+          session.raw.posts = session.raw.posts.map(p => {
+            const { imageBase64, ...rest } = p;
+            return rest;
+          });
+          cleaned++;
+        }
+      }
+
+      // Also handle multi-platform format
+      if (session.raw && session.raw.platforms) {
+        for (const platform in session.raw.platforms) {
+          const data = session.raw.platforms[platform];
+          const itemsKey = platform === 'youtube' ? 'videos' : 'posts';
+          if (data[itemsKey]) {
+            const hadThumbnails = data[itemsKey].some(item => item.imageBase64 || item.thumbnail);
+            if (hadThumbnails) {
+              data[itemsKey] = data[itemsKey].map(item => {
+                const { imageBase64, ...rest } = item;
+                return rest;
+              });
+              cleaned++;
+            }
+          }
+        }
+      }
+    }
+
+    return session;
+  });
+
+  if (cleaned > 0) {
+    console.log(`[MindfulFeed] Removed thumbnails from ${cleaned} old session(s)`);
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [SESSION_HISTORY_KEY]: updatedHistory }, () => resolve());
+    });
+  } else {
+    console.log('[MindfulFeed] No old thumbnails to clean up');
+  }
+}
+
 async function getIncrementalAnalysis() {
   return new Promise((resolve) => {
     chrome.storage.local.get([INCREMENTAL_ANALYSIS_KEY], (r) => resolve(r[INCREMENTAL_ANALYSIS_KEY] || { analyzedPosts: [], results: null }));
@@ -997,6 +1058,10 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
     endedAt: history[0]?.endedAt,
     date: history[0]?.endedAt ? new Date(history[0].endedAt).toISOString() : 'N/A'
   });
+
+  // Clean up thumbnails from sessions older than yesterday
+  await cleanupOldThumbnails();
+  console.log('[MindfulFeed] ✓ Old thumbnails cleaned up');
 
   // Aggregate into daily bucket
   const daily = await getDaily();

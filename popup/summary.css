@@ -925,6 +925,20 @@ body{
   object-fit: cover;
 }
 
+.postImage .emoji-placeholder {
+  font-size: 64px;
+  line-height: 1;
+  filter: grayscale(0.3);
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.postCard:hover .emoji-placeholder {
+  opacity: 0.9;
+  filter: grayscale(0);
+  transform: scale(1.1);
+}
+
 .postContent{
   flex: 1;
   min-width: 0;
