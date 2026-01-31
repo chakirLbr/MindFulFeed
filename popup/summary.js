@@ -1447,6 +1447,8 @@ function renderSessionPosts(session) {
     const topic = itemAnalysis.topic || 'Unknown';
     const emotion = itemAnalysis.emotion || 'Neutral';
     const engagement = itemAnalysis.engagement || '';
+    const reason = itemAnalysis.reason || '';
+    const confidence = itemAnalysis.confidence !== undefined ? itemAnalysis.confidence : null;
 
     const topicClass = topic.toLowerCase();
     const topicColor = getTopicColor(topic);
@@ -1466,6 +1468,10 @@ function renderSessionPosts(session) {
       ? descriptionText.substring(0, 150) + '...'
       : descriptionText;
 
+    const hasClassificationDetails = reason && confidence !== null;
+    const confidencePercent = confidence !== null ? Math.round(confidence * 100) : 0;
+    const confidenceColor = confidence >= 0.8 ? '#22c55e' : confidence >= 0.5 ? '#f59e0b' : '#ef4444';
+
     itemCard.innerHTML = `
       <div class="postImage">
         ${imageHtml}
@@ -1483,15 +1489,43 @@ function renderSessionPosts(session) {
           </span>
           ${emotion !== 'Unknown' ? `<span class="postTag emotion">${emotion}</span>` : ''}
           ${engagement ? `<span class="postTag">${engagement}</span>` : ''}
+          ${hasClassificationDetails ? `<button class="aiDetailsBtn" data-post-index="${index}">🤖 AI Details</button>` : ''}
         </div>
+        ${hasClassificationDetails ? `
+          <div class="aiDetails" id="aiDetails-${index}" style="display: none;">
+            <div class="aiDetailsHeader">
+              <span class="aiDetailsTitle">AI Classification</span>
+              <span class="aiConfidence" style="color: ${confidenceColor}">
+                Confidence: ${confidencePercent}%
+              </span>
+            </div>
+            <div class="aiReason">${reason}</div>
+          </div>
+        ` : ''}
       </div>
     `;
 
-    // Make card clickable to open the content
+    // Add AI details toggle functionality
+    if (hasClassificationDetails) {
+      const aiDetailsBtn = itemCard.querySelector('.aiDetailsBtn');
+      const aiDetailsDiv = itemCard.querySelector(`#aiDetails-${index}`);
+
+      aiDetailsBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card click
+        const isVisible = aiDetailsDiv.style.display !== 'none';
+        aiDetailsDiv.style.display = isVisible ? 'none' : 'block';
+        aiDetailsBtn.textContent = isVisible ? '🤖 AI Details' : '🤖 Hide Details';
+      });
+    }
+
+    // Make card clickable to open the content (but not if clicking AI details button)
     if (item.href) {
       itemCard.style.cursor = 'pointer';
-      itemCard.addEventListener('click', () => {
-        window.open(item.href, '_blank');
+      itemCard.addEventListener('click', (e) => {
+        // Don't open link if clicking on AI details button or details section
+        if (!e.target.closest('.aiDetailsBtn') && !e.target.closest('.aiDetails')) {
+          window.open(item.href, '_blank');
+        }
       });
     }
 
