@@ -1042,7 +1042,6 @@ function getTopicIcon(topic) {
 }
 
 function getTopicDisplayName(topic) {
-  if (topic === 'Informative') return 'Civic';
   return topic;
 }
 
@@ -1070,7 +1069,7 @@ function getSessionDescription(session) {
 
 function getEmotionLabel(emotion, topic) {
   if (topic === 'Informative' && emotion === 'Heavy') {
-    return 'Civic/Informational tone (Important but emotionally heavy)';
+    return 'Informational tone (Important but emotionally heavy)';
   }
 
   const labels = {
