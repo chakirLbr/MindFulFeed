@@ -46,6 +46,16 @@ function setupEventListeners() {
     window.location.href = 'summary.html';
   });
 
+  // Navigation menu
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const page = btn.getAttribute('data-page');
+      if (page) {
+        window.location.href = page;
+      }
+    });
+  });
+
   // Achievement filter buttons
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
