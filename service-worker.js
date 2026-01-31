@@ -1465,7 +1465,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
 
     if (msg.type === "GET_ACHIEVEMENTS") {
-      const achievements = await GAMIFICATION.getAchievements();
+      const achievements = await GAMIFICATION.getAllAchievements();
       sendResponse({ ok: true, achievements });
       return;
     }
