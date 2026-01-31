@@ -249,7 +249,7 @@ function renderTopicLegend(topicsMs, totalMs) {
     item.innerHTML = `
       <span class="legendDot" style="background:${cssVar(t.colorVar)}"></span>
       <span style="min-width:92px">${t.key}</span>
-      <span style="color: rgba(36,49,58,0.6)">${pct}% of time</span>
+      <span class="legendPct">${pct}% of time</span>
     `;
     el.appendChild(item);
   }
