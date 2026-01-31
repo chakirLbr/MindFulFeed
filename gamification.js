@@ -222,6 +222,30 @@ const GAMIFICATION = (() => {
   }
 
   /**
+   * Get all achievements (both locked and unlocked) for display
+   */
+  async function getAllAchievements() {
+    const unlocked = await getAchievements();
+    const unlockedIds = new Set(unlocked.map(a => a.id));
+
+    // Convert ACHIEVEMENTS object to array with unlock status
+    const allAchievements = Object.values(ACHIEVEMENTS).map(achievement => {
+      const isUnlocked = unlockedIds.has(achievement.id);
+      const unlockedData = unlocked.find(a => a.id === achievement.id);
+
+      return {
+        ...achievement,
+        unlocked: isUnlocked,
+        unlockedAt: unlockedData?.unlockedAt || null,
+        progress: 0, // Could be calculated from stats if needed
+        target: 1 // Simplified - could be extracted from condition
+      };
+    });
+
+    return allAchievements;
+  }
+
+  /**
    * Save achievements
    */
   async function saveAchievements(achievements) {
@@ -459,6 +483,7 @@ const GAMIFICATION = (() => {
     LEVELS,
     checkAchievements,
     getAchievements,
+    getAllAchievements,
     calculateLevel,
     calculateStats,
     updateLeaderboard,
