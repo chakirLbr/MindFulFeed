@@ -42,6 +42,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 function setupEventListeners() {
   document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
+  document.getElementById('editUsernameBtn')?.addEventListener('click', editUsername);
+
   document.getElementById('backBtn')?.addEventListener('click', () => {
     window.location.href = 'summary.html';
   });
@@ -72,6 +74,33 @@ function setupEventListeners() {
       renderAchievements();
     });
   });
+}
+
+async function editUsername() {
+  const currentName = document.getElementById('playerName').textContent;
+  const newName = prompt('Enter your username:', currentName);
+
+  if (newName && newName.trim() && newName !== currentName) {
+    const trimmedName = newName.trim().substring(0, 20); // Max 20 characters
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: 'SET_USERNAME',
+        username: trimmedName
+      });
+
+      if (response && response.ok) {
+        document.getElementById('playerName').textContent = trimmedName;
+        // Reload leaderboard to update username display
+        await loadLeaderboard();
+      } else {
+        alert('Failed to update username. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error updating username:', error);
+      alert('Failed to update username. Please try again.');
+    }
+  }
 }
 
 async function loadPlayerStats() {

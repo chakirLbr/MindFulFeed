@@ -1451,8 +1451,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const totalPoints = await GAMIFICATION.calculateTotalPoints();
       const level = GAMIFICATION.calculateLevel(totalPoints);
       const leaderboardData = await GAMIFICATION.updateLeaderboard(stats, level);
+      const username = leaderboardData.userEntry?.username || 'Anonymous Player';
 
-      sendResponse({ ok: true, ...leaderboardData });
+      sendResponse({
+        ok: true,
+        stats,
+        totalPoints,
+        level,
+        username,
+        ...leaderboardData
+      });
       return;
     }
 
