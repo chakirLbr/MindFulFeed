@@ -933,6 +933,13 @@ body{
   transition: all 0.2s ease;
 }
 
+/* For IMG elements with emoji-placeholder class (Instagram icon SVG) */
+.postImage img.emoji-placeholder {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
 .postCard:hover .emoji-placeholder {
   opacity: 0.9;
   filter: grayscale(0);
