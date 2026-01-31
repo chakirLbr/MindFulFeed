@@ -1046,6 +1046,80 @@ body{
   opacity: 0.9;
 }
 
+/* AI Details Button */
+.aiDetailsBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 650;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: 1px solid rgba(102, 126, 234, 0.4);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aiDetailsBtn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  border-color: rgba(102, 126, 234, 0.6);
+}
+
+/* AI Details Section */
+.aiDetails {
+  margin-top: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 8px;
+  animation: aiDetailsSlide 0.3s ease-out;
+}
+
+@keyframes aiDetailsSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.aiDetailsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.aiDetailsTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.aiConfidence {
+  font-size: 11px;
+  font-weight: 650;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+body.dark-mode .aiConfidence {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.aiReason {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 @media (max-width: 650px){
   .postCard{
     flex-direction: column;
