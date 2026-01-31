@@ -337,6 +337,10 @@ toggleBtn.addEventListener("click", async () => {
       return;
     }
     stopUiTicking();
+
+    // Update UI immediately to show "Start" button
+    await updateUI();
+
     startProcessingCheck();
     await updateAnalyticsButton();
 
