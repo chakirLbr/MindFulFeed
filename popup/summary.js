@@ -1433,10 +1433,14 @@ function renderSessionPosts(session) {
       imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<span class=\\'emoji-placeholder\\'>🎥</span>'" />`;
     } else if (isRecentSession && item.imageBase64) {
       // Instagram posts from today/yesterday - use base64 image
-      imageHtml = `<img src="${item.imageBase64}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<span class=\\'emoji-placeholder\\'>📷</span>'" />`;
+      imageHtml = `<img src="${item.imageBase64}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<img src=\\'../logo/instagram-icon.svg\\' class=\\'emoji-placeholder\\' alt=\\'Instagram\\' />'" />`;
     } else {
       // Older sessions or missing images - use bigger emoji placeholder
-      imageHtml = `<span class="emoji-placeholder">${isVideo ? '🎥' : '📷'}</span>`;
+      if (isVideo) {
+        imageHtml = `<span class="emoji-placeholder">🎥</span>`;
+      } else {
+        imageHtml = `<img src="../logo/instagram-icon.svg" class="emoji-placeholder" alt="Instagram" />`;
+      }
     }
 
     // Topic and emotion tags
