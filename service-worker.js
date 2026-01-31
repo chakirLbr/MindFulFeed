@@ -320,12 +320,19 @@ async function addTabToTracking(tabId, platform) {
   }
 
   // Send START signal to the new tab
-  await signalContentToTab(tabId, "START", {
+  console.log(`[MindfulFeed] 📤 Sending START signal to ${platform} tab ${tabId}...`);
+  const success = await signalContentToTab(tabId, "START", {
     sessionId: meta.sessionId,
     startedAt: getNow()
   });
 
-  return true;
+  if (success) {
+    console.log(`[MindfulFeed] ✅ ${platform} tab ${tabId} is now tracking!`);
+  } else {
+    console.warn(`[MindfulFeed] ⚠️ START signal may have failed for tab ${tabId} - tab might not track properly`);
+  }
+
+  return success;
 }
 
 function isTabTracked(tabId, meta) {
@@ -350,11 +357,17 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   try {
     // Check if we're currently tracking - CRITICAL: exit early if not tracking
     const state = await getState();
-    if (!state.isTracking) return;
+    if (!state.isTracking) {
+      console.log(`[MindfulFeed] Tab activated (${activeInfo.tabId}) but not tracking - ignoring`);
+      return;
+    }
 
     // Get the activated tab details
     const tab = await chrome.tabs.get(activeInfo.tabId).catch(() => null);
-    if (!tab || !tab.url) return;
+    if (!tab || !tab.url) {
+      console.log(`[MindfulFeed] Could not get tab info for ${activeInfo.tabId}`);
+      return;
+    }
 
     // Check if it's Instagram or YouTube
     let platform = null;
@@ -369,22 +382,35 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       return;
     }
 
-    if (!platform) return;
+    if (!platform) {
+      console.log(`[MindfulFeed] Tab ${activeInfo.tabId} is not Instagram or YouTube - ignoring`);
+      return;
+    }
+
+    console.log(`[MindfulFeed] 🔄 User switched to ${platform} tab ${activeInfo.tabId} (${tab.url.substring(0, 50)}...)`);
 
     // Check if this tab is already tracked
     const meta = await getSessionMeta();
-    if (!meta || !meta.sessionId) return; // No active session
+    if (!meta || !meta.sessionId) {
+      console.warn('[MindfulFeed] No active session metadata found');
+      return;
+    }
 
     if (isTabTracked(activeInfo.tabId, meta)) {
-      console.log(`[MindfulFeed] User switched to already-tracked ${platform} tab ${activeInfo.tabId}`);
+      console.log(`[MindfulFeed] ✓ Tab ${activeInfo.tabId} is already being tracked`);
       return;
     }
 
     // Add this tab to tracking
-    console.log(`[MindfulFeed] User switched to new ${platform} tab ${activeInfo.tabId}, adding to tracking...`);
-    await addTabToTracking(activeInfo.tabId, platform);
+    console.log(`[MindfulFeed] 🆕 NEW ${platform.toUpperCase()} TAB detected - adding to tracking...`);
+    const success = await addTabToTracking(activeInfo.tabId, platform);
+    if (success) {
+      console.log(`[MindfulFeed] ✅ Successfully added ${platform} tab ${activeInfo.tabId} to tracking!`);
+    } else {
+      console.warn(`[MindfulFeed] ⚠️ Failed to add ${platform} tab ${activeInfo.tabId} to tracking`);
+    }
   } catch (error) {
-    console.error('[MindfulFeed] Error in tab activation handler:', error);
+    console.error('[MindfulFeed] ❌ Error in tab activation handler:', error);
   }
 });
 
@@ -394,27 +420,70 @@ async function ensureInjected(tabId) {
   try {
     // Get tab info to determine which script to inject
     const tab = await chrome.tabs.get(tabId);
-    if (!tab || !tab.url) return;
+    if (!tab || !tab.url) return false;
 
     const url = new URL(tab.url);
+    let scriptFile = null;
+
     if (url.hostname === "www.youtube.com" || url.hostname === "youtube.com") {
-      await chrome.scripting.executeScript({ target: { tabId }, files: ["foreground-youtube.js"] });
+      scriptFile = "foreground-youtube.js";
     } else if (url.hostname === "www.instagram.com" || url.hostname === "instagram.com") {
-      await chrome.scripting.executeScript({ target: { tabId }, files: ["foreground.js"] });
+      scriptFile = "foreground.js";
     }
-  } catch (_) {
-    // ignore (e.g., tab not accessible)
+
+    if (!scriptFile) return false;
+
+    // Inject the script
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: [scriptFile]
+    });
+
+    console.log(`[MindfulFeed] Injected ${scriptFile} into tab ${tabId}`);
+
+    // CRITICAL: Wait for script to initialize before sending messages
+    // Content scripts need time to set up their message listeners
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    return true;
+  } catch (error) {
+    // Log errors for debugging (script might already be injected, which is fine)
+    console.log(`[MindfulFeed] ensureInjected error (tab ${tabId}):`, error.message);
+    return false;
   }
 }
 
 async function signalContentToTab(tabId, action, payload = {}) {
-  if (!tabId) return;
+  if (!tabId) return false;
+
   await ensureInjected(tabId);
+
+  // Send message with retry logic (in case script is still initializing)
   return new Promise((resolve) => {
-    chrome.tabs.sendMessage(tabId, { type: "MFF_CONTROL", action, ...payload }, () => {
-      void chrome.runtime.lastError;
-      resolve();
-    });
+    let attempts = 0;
+    const maxAttempts = 3;
+    const retryDelay = 100;
+
+    const sendWithRetry = () => {
+      attempts++;
+      chrome.tabs.sendMessage(tabId, { type: "MFF_CONTROL", action, ...payload }, (response) => {
+        if (chrome.runtime.lastError) {
+          // Message failed - retry if we haven't exhausted attempts
+          if (attempts < maxAttempts) {
+            console.log(`[MindfulFeed] Message to tab ${tabId} failed (attempt ${attempts}/${maxAttempts}), retrying...`);
+            setTimeout(sendWithRetry, retryDelay);
+          } else {
+            console.warn(`[MindfulFeed] Failed to signal tab ${tabId} after ${maxAttempts} attempts:`, chrome.runtime.lastError.message);
+            resolve(false);
+          }
+        } else {
+          console.log(`[MindfulFeed] ✓ Successfully sent ${action} to tab ${tabId}`);
+          resolve(true);
+        }
+      });
+    };
+
+    sendWithRetry();
   });
 }
 
