@@ -311,12 +311,13 @@ const GAMIFICATION = (() => {
 
     const userId = await getUserId(); // Anonymous ID
     const username = await getUsername(); // User-set display name
+    const totalPoints = await calculateTotalPoints(); // Calculate points first
 
     const entry = {
       userId,
-      username: username || `User${userId.slice(0, 6)}`,
-      level: userLevel.level,
-      points: calculateTotalPoints(),
+      username: username || `User_${userId.slice(0, 6)}`,
+      level: userLevel,  // Store full level object (not just level.level)
+      points: totalPoints,  // Use pre-calculated points
       stats: {
         streak: userStats.trackingStreak,
         sessions: userStats.sessionsCompleted,
