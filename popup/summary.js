@@ -1097,8 +1097,11 @@ function renderTodaysSessions(sessionHistory) {
 
   // Filter sessions for today
   const todayKey = isoDate(new Date());
+  console.log('[Summary] Today key:', todayKey, 'Current time:', new Date().toISOString());
+
   const todaySessions = sessionHistory.filter(session => {
     const sessionDate = isoDate(new Date(session.endedAt));
+    console.log('[Summary] Session:', session.sessionId, 'endedAt:', session.endedAt, 'date:', new Date(session.endedAt).toISOString(), 'sessionDate:', sessionDate, 'matches today:', sessionDate === todayKey);
     return sessionDate === todayKey;
   });
 
