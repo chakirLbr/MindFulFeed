@@ -20,8 +20,6 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
 }
 
 .actions {
@@ -51,21 +49,12 @@ body {
   transform: scale(1.1);
 }
 
-/* Navigation Menu */
-.nav-menu {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  flex: 1;
-  justify-content: center;
-}
-
-.nav-btn {
+.btn {
   padding: 0.625rem 1rem;
-  background: transparent;
-  border: 1px solid transparent;
+  background: #f7f7f7;
+  border: 1px solid #e2e8f0;
   border-radius: 8px;
-  color: #718096;
+  color: #2d3748;
   font-size: 0.9375rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -73,13 +62,13 @@ body {
   white-space: nowrap;
 }
 
-.nav-btn:hover {
-  background: #f7f7f7;
-  border-color: #e2e8f0;
-  color: #2d3748;
+.btn:hover {
+  background: #5CBCC1;
+  border-color: #5CBCC1;
+  color: white;
 }
 
-.nav-btn.active {
+.btn.active {
   background: #5CBCC1;
   border-color: #5CBCC1;
   color: white;
