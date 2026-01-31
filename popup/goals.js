@@ -44,6 +44,16 @@ function setupEventListeners() {
     window.location.href = 'summary.html';
   });
 
+  // Navigation menu
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const page = btn.getAttribute('data-page');
+      if (page) {
+        window.location.href = page;
+      }
+    });
+  });
+
   document.getElementById('addGoalBtn')?.addEventListener('click', () => {
     showGoalModal();
   });

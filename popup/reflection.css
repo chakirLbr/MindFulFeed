@@ -17,6 +17,73 @@ body {
   background: white;
   padding: 1rem 2rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.theme-toggle {
+  padding: 0.625rem;
+  background: #f7f7f7;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #2d3748;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.theme-toggle:hover {
+  background: #f39c12;
+  transform: scale(1.1);
+}
+
+/* Navigation Menu */
+.nav-menu {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-btn {
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #718096;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background: #f7f7f7;
+  border-color: #e2e8f0;
+  color: #2d3748;
+}
+
+.nav-btn.active {
+  background: #5CBCC1;
+  border-color: #5CBCC1;
+  color: white;
+  font-weight: 600;
 }
 
 .brand {

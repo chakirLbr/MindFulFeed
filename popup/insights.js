@@ -37,6 +37,16 @@ function setupEventListeners() {
   document.getElementById('backBtn')?.addEventListener('click', () => {
     window.location.href = 'summary.html';
   });
+
+  // Navigation menu
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const page = btn.getAttribute('data-page');
+      if (page) {
+        window.location.href = page;
+      }
+    });
+  });
 }
 
 async function loadInsights() {

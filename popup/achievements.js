@@ -168,6 +168,29 @@ document.getElementById('backBtn').addEventListener('click', () => {
   window.location.href = 'summary.html';
 });
 
+// Theme toggle
+document.getElementById('themeToggle')?.addEventListener('click', async () => {
+  const isDark = document.body.classList.contains('dark-mode');
+  const newTheme = isDark ? 'light' : 'dark';
+  await chrome.storage.local.set({ mf_theme: newTheme });
+  document.body.classList.toggle('dark-mode');
+  const toggleBtn = document.getElementById('themeToggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    toggleBtn.title = newTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+  }
+});
+
+// Navigation menu
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const page = btn.getAttribute('data-page');
+    if (page) {
+      window.location.href = page;
+    }
+  });
+});
+
 // Initialize
 setupFilters();
 loadAchievements();

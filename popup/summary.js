@@ -1525,21 +1525,14 @@ async function toggleTheme() {
 document.getElementById("themeToggle")?.addEventListener("click", toggleTheme);
 document.getElementById("refreshBtn")?.addEventListener("click", loadDashboard);
 
-// Navigation buttons
-document.getElementById("insightsBtn")?.addEventListener("click", () => {
-  window.location.href = "insights.html";
-});
-
-document.getElementById("goalsBtn")?.addEventListener("click", () => {
-  window.location.href = "goals.html";
-});
-
-document.getElementById("statsBtn")?.addEventListener("click", () => {
-  window.location.href = "stats.html";
-});
-
-document.getElementById("achievementsBtn")?.addEventListener("click", () => {
-  window.location.href = "achievements.html";
+// Navigation menu
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const page = btn.getAttribute('data-page');
+    if (page) {
+      window.location.href = page;
+    }
+  });
 });
 
 wirePeriodTabs();
