@@ -3,6 +3,30 @@
 let allAchievements = [];
 let currentFilter = 'all';
 
+// Theme Management
+async function loadTheme() {
+  const result = await chrome.storage.local.get(['mf_theme']);
+  const theme = result.mf_theme || 'light';
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  const isDark = theme === 'dark';
+  document.body.classList.toggle('dark-mode', isDark);
+  const toggleBtn = document.getElementById('themeToggle');
+  if (toggleBtn) {
+    toggleBtn.textContent = isDark ? '☀️' : '🌙';
+    toggleBtn.title = isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+  }
+}
+
+async function toggleTheme() {
+  const isDark = document.body.classList.contains('dark-mode');
+  const newTheme = isDark ? 'light' : 'dark';
+  await chrome.storage.local.set({ mf_theme: newTheme });
+  applyTheme(newTheme);
+}
+
 // Send message to background
 async function sendMessage(msg) {
   return new Promise((resolve) => {
@@ -169,17 +193,7 @@ document.getElementById('backBtn').addEventListener('click', () => {
 });
 
 // Theme toggle
-document.getElementById('themeToggle')?.addEventListener('click', async () => {
-  const isDark = document.body.classList.contains('dark-mode');
-  const newTheme = isDark ? 'light' : 'dark';
-  await chrome.storage.local.set({ mf_theme: newTheme });
-  document.body.classList.toggle('dark-mode');
-  const toggleBtn = document.getElementById('themeToggle');
-  if (toggleBtn) {
-    toggleBtn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
-    toggleBtn.title = newTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
-  }
-});
+document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
 
 // Navigation buttons
 document.getElementById('insightsBtn')?.addEventListener('click', () => {
@@ -199,6 +213,7 @@ document.getElementById('achievementsBtn')?.addEventListener('click', () => {
 });
 
 // Initialize
+loadTheme();
 setupFilters();
 loadAchievements();
 

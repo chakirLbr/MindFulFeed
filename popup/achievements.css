@@ -4,17 +4,31 @@
   --primary: #4E9CA6;
   --primary-dark: #3D8C87;
   --highlight: #4EACAA;
-  --bg: #f8fafb;
-  --card-bg: #ffffff;
-  --text: #24313a;
-  --muted: rgba(36, 49, 58, 0.6);
-  --border: rgba(78, 156, 166, 0.15);
-  --shadow: rgba(78, 156, 166, 0.1);
+  --bg: #f7f8fb;
+  --bg-card: #ffffff;
+  --bg-hover: #f5f5f5;
+  --text-primary: #24313A;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border-color: rgba(36,49,58,0.10);
+  --accent-blue: #4a9eff;
+  --shadow: 0 10px 30px rgba(36,49,58,0.12);
 
   /* Tier colors */
   --bronze: #CD7F32;
   --silver: #C0C0C0;
   --gold: #FFD700;
+}
+
+body.dark-mode {
+  --bg: #1a1a1a;
+  --bg-card: #242424;
+  --bg-hover: #2a2a2a;
+  --text-primary: #ffffff;
+  --text-secondary: #b3b3b3;
+  --text-muted: #666666;
+  --border-color: #333333;
+  --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 * {
@@ -25,32 +39,38 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  background: linear-gradient(135deg, #A0E8EC 0%, #95DDD9 100%);
+  background: var(--bg);
   min-height: 100vh;
-  color: var(--text);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .topbar {
-  background: var(--card-bg);
-  padding: 1.25rem 2rem;
-  box-shadow: 0 2px 8px var(--shadow);
+  background: var(--bg-card);
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: var(--shadow);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 10px;
   align-items: center;
 }
 
 .theme-toggle {
-  padding: 0.625rem;
-  background: #f7f7f7;
-  border: 1px solid rgba(78, 156, 166, 0.2);
-  border-radius: 8px;
-  color: var(--text);
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
   font-size: 1.25rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -67,10 +87,9 @@ body {
 }
 
 .btn.active {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
   color: white;
-  font-weight: 600;
 }
 
 .brand {
@@ -80,36 +99,35 @@ body {
 }
 
 .logo {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+  width: 40px;
+  height: 40px;
 }
 
 .name {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--text-primary);
 }
 
 .sub {
   font-size: 0.875rem;
-  color: var(--muted);
+  color: var(--text-secondary);
 }
 
 .btn {
-  padding: 0.625rem 1.25rem;
-  border: none;
-  border-radius: 8px;
-  background: var(--primary);
-  color: white;
-  font-weight: 600;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-weight: 650;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease;
+  font-family: inherit;
 }
 
 .btn:hover {
-  background: var(--primary-dark);
-  transform: translateY(-1px);
+  background: var(--bg-hover);
 }
 
 .container {
@@ -119,11 +137,13 @@ body {
 }
 
 .card {
-  background: var(--card-bg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 16px;
   padding: 1.5rem;
-  box-shadow: 0 4px 12px var(--shadow);
+  box-shadow: var(--shadow);
   margin-bottom: 1.5rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 /* Progress Card */
@@ -199,11 +219,13 @@ body {
 }
 
 .stat-card {
-  background: var(--card-bg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.25rem;
   text-align: center;
-  box-shadow: 0 2px 8px var(--shadow);
+  box-shadow: var(--shadow);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .stat-icon {
@@ -220,7 +242,7 @@ body {
 
 .stat-label {
   font-size: 0.875rem;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 /* Filter Tabs */
@@ -233,10 +255,10 @@ body {
 
 .tab {
   padding: 0.625rem 1.25rem;
-  border: 2px solid var(--border);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--text);
+  background: var(--bg-card);
+  color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -245,6 +267,7 @@ body {
 .tab:hover {
   border-color: var(--primary);
   color: var(--primary);
+  background: var(--bg-hover);
 }
 
 .tab.active {
@@ -261,10 +284,11 @@ body {
 }
 
 .achievement-card {
-  background: var(--card-bg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 1.5rem;
-  box-shadow: 0 2px 8px var(--shadow);
+  box-shadow: var(--shadow);
   transition: all 0.3s;
   position: relative;
   overflow: hidden;
@@ -272,7 +296,7 @@ body {
 
 .achievement-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 20px var(--shadow);
+  box-shadow: 0 8px 20px rgba(78, 156, 166, 0.2);
 }
 
 .achievement-card.locked {
@@ -324,13 +348,13 @@ body {
 .achievement-title {
   font-size: 1.125rem;
   font-weight: 700;
-  color: var(--text);
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 
 .achievement-desc {
   font-size: 0.875rem;
-  color: var(--muted);
+  color: var(--text-secondary);
   line-height: 1.5;
   margin-bottom: 1rem;
 }
@@ -350,12 +374,12 @@ body {
 .achievement-progress {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-color);
 }
 
 .progress-label {
   font-size: 0.75rem;
-  color: var(--muted);
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
   display: flex;
   justify-content: space-between;
@@ -379,7 +403,7 @@ body {
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .empty-icon {
@@ -390,7 +414,7 @@ body {
 
 .empty-state h3 {
   font-size: 1.5rem;
-  color: var(--text);
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
 }
 

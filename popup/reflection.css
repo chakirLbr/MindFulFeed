@@ -24,15 +24,15 @@ body {
 
 .actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 10px;
   align-items: center;
 }
 
 .theme-toggle {
-  padding: 0.625rem;
-  background: #f7f7f7;
+  padding: 8px;
+  background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 12px;
   color: #2d3748;
   font-size: 1.25rem;
   cursor: pointer;
@@ -50,29 +50,26 @@ body {
 }
 
 .btn {
-  padding: 0.625rem 1rem;
-  background: #f7f7f7;
+  padding: 8px 12px;
+  background: white;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 12px;
   color: #2d3748;
-  font-size: 0.9375rem;
+  font-weight: 650;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background-color 0.2s ease;
   font-family: inherit;
   white-space: nowrap;
 }
 
 .btn:hover {
-  background: #5CBCC1;
-  border-color: #5CBCC1;
-  color: white;
+  background: #f7f7f7;
 }
 
 .btn.active {
   background: #5CBCC1;
   border-color: #5CBCC1;
   color: white;
-  font-weight: 600;
 }
 
 .brand {
