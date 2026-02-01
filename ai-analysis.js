@@ -72,6 +72,53 @@ const AI_ANALYSIS = (() => {
   }
 
   /**
+   * Validate and map AI responses by postNumber to ensure correct alignment
+   * @param {Array} aiPosts - AI response posts array with postNumber field
+   * @param {number} expectedCount - Expected number of posts
+   * @returns {Array} Validated and correctly ordered posts array
+   */
+  function validateAndMapAIResponses(aiPosts, expectedCount) {
+    console.log('[AI Analysis] Validating AI responses...');
+    console.log('[AI Analysis] Expected:', expectedCount, 'posts, Received:', aiPosts.length, 'responses');
+
+    // Create a map by postNumber
+    const postMap = {};
+    for (const post of aiPosts) {
+      if (post.postNumber !== undefined) {
+        postMap[post.postNumber] = post;
+      }
+    }
+
+    // Create ordered array with all posts (1 to expectedCount)
+    const validatedPosts = [];
+    let missingCount = 0;
+    for (let i = 1; i <= expectedCount; i++) {
+      if (postMap[i]) {
+        validatedPosts.push(postMap[i]);
+      } else {
+        // Missing post - use fallback
+        console.warn(`[AI Analysis] Missing classification for post ${i}, using fallback`);
+        validatedPosts.push({
+          postNumber: i,
+          topic: 'Entertainment',
+          emotion: 'Neutral',
+          reason: 'Classification unavailable - using default category',
+          confidence: 0.1
+        });
+        missingCount++;
+      }
+    }
+
+    if (missingCount > 0) {
+      console.warn(`[AI Analysis] ⚠️  ${missingCount} posts missing from AI response, filled with defaults`);
+    } else {
+      console.log('[AI Analysis] ✅ All posts validated successfully');
+    }
+
+    return validatedPosts;
+  }
+
+  /**
    * Analyzes a batch of posts using AI (multimodal: text + images)
    * @param {Array} posts - Array of {caption, href, dwellMs, imageUrl}
    * @param {string} apiKey - Optional API key for Claude or similar service
@@ -276,18 +323,22 @@ OUTPUT
 Return ONLY valid JSON with this structure:
 {
   "posts": [
-    {"topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
     ...
   ]
 }
 
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
 Include for each post:
+- postNumber: the number from the POSTS list (1, 2, 3, etc.) - REQUIRED to match responses to posts
 - topic: one of the 4 categories
 - emotion: one of the 4 emotions
-- reason: 1-2 sentence explanation of why you chose this category
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
 - confidence: 0.0 to 1.0 (how confident you are in this classification)
 
-Do NOT compute overall distributions. Return ONLY the per-post array.`
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.`
           }
         ];
 
@@ -319,11 +370,15 @@ Do NOT compute overall distributions. Return ONLY the per-post array.`
         }
 
         console.log('[AI Analysis] LM Studio response received:', aiResult);
-        console.log('[AI Analysis] Per-post classifications:', aiResult.posts.map(p => `${p.topic} (${p.confidence}): ${p.reason}`));
+
+        // Validate and map AI responses by postNumber
+        const validatedPosts = validateAndMapAIResponses(aiResult.posts, topPosts.length);
+
+        console.log('[AI Analysis] Per-post classifications:', validatedPosts.map((p, i) => `Post ${i+1}: ${p.topic} (${p.confidence}): ${p.reason}`));
 
         // Compute overall distributions using JS (not LLM)
         const dwellSeconds = topPosts.map(p => Math.round(p.dwellMs / 1000));
-        const overall = computeOverall(aiResult.posts, dwellSeconds);
+        const overall = computeOverall(validatedPosts, dwellSeconds);
 
         console.log('[AI Analysis] Computed overall distributions:', overall);
 
@@ -335,7 +390,7 @@ Do NOT compute overall distributions. Return ONLY the per-post array.`
           totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
           postsAnalyzed: posts.length,
           analysisMethod: 'local-lmstudio-text',
-          perPostAnalysis: aiResult.posts || [],
+          perPostAnalysis: validatedPosts,
           insights: generatePsychologicalInsights(
             overall.topics,
             overall.emotions,
@@ -487,18 +542,22 @@ OUTPUT
 Return ONLY valid JSON with this structure:
 {
   "posts": [
-    {"topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
     ...
   ]
 }
 
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
 Include for each post:
+- postNumber: the number from the POSTS list (1, 2, 3, etc.) - REQUIRED to match responses to posts
 - topic: one of the 4 categories
 - emotion: one of the 4 emotions
-- reason: 1-2 sentence explanation of why you chose this category
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
 - confidence: 0.0 to 1.0 (how confident you are in this classification)
 
-Do NOT compute overall distributions. Return ONLY the per-post array.`
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.`
       }
     ];
 
@@ -530,17 +589,21 @@ Do NOT compute overall distributions. Return ONLY the per-post array.`
     }
 
     console.log('[AI Analysis - Stage 2] Categorization completed:', aiResult);
-    console.log('[AI Analysis - Stage 2] Per-post classifications:', aiResult.posts.map(p => `${p.topic} (${p.confidence}): ${p.reason}`));
+
+    // Validate and map AI responses by postNumber
+    const validatedPosts = validateAndMapAIResponses(aiResult.posts, posts.length);
+
+    console.log('[AI Analysis - Stage 2] Per-post classifications:', validatedPosts.map((p, i) => `Post ${i+1}: ${p.topic} (${p.confidence}): ${p.reason}`));
 
     // Compute overall distributions using JS (not LLM)
     const dwellSeconds = posts.map(p => Math.round(p.dwellMs / 1000));
-    const overall = computeOverall(aiResult.posts, dwellSeconds);
+    const overall = computeOverall(validatedPosts, dwellSeconds);
 
     console.log('[AI Analysis - Stage 2] Computed overall distributions:', overall);
 
     // Return both per-post and computed overall
     return {
-      posts: aiResult.posts,
+      posts: validatedPosts,
       overall: overall
     };
   }
@@ -714,18 +777,22 @@ OUTPUT
 Return ONLY valid JSON with this structure:
 {
   "posts": [
-    {"topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
     ...
   ]
 }
 
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
 Include for each post:
+- postNumber: the number from the POSTS list (1, 2, 3, etc.) - REQUIRED to match responses to posts
 - topic: one of the 4 categories
 - emotion: one of the 4 emotions
-- reason: 1-2 sentence explanation of why you chose this category
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
 - confidence: 0.0 to 1.0 (how confident you are in this classification)
 
-Do NOT compute overall distributions. Return ONLY the per-post array.`
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.`
           }
         ];
       }
@@ -762,11 +829,15 @@ Do NOT compute overall distributions. Return ONLY the per-post array.`
       }
 
       console.log('[AI Analysis] ✅ OpenAI response received and parsed successfully');
-      console.log('[AI Analysis] Per-post classifications:', aiResult.posts.map(p => `${p.topic} (${p.confidence}): ${p.reason}`));
+
+      // Validate and map AI responses by postNumber
+      const validatedPosts = validateAndMapAIResponses(aiResult.posts, topPosts.length);
+
+      console.log('[AI Analysis] Per-post classifications:', validatedPosts.map((p, i) => `Post ${i+1}: ${p.topic} (${p.confidence}): ${p.reason}`));
 
       // Compute overall distributions using JS (not LLM)
       const dwellSeconds = topPosts.map(p => Math.round(p.dwellMs / 1000));
-      const overall = computeOverall(aiResult.posts, dwellSeconds);
+      const overall = computeOverall(validatedPosts, dwellSeconds);
 
       console.log('[AI Analysis] 📈 Topics detected:', Object.keys(overall.topics).filter(t => overall.topics[t] > 0.05).join(', '));
       console.log('[AI Analysis] 😊 Emotions detected:', Object.keys(overall.emotions).filter(e => overall.emotions[e] > 0.05).join(', '));
@@ -780,7 +851,7 @@ Do NOT compute overall distributions. Return ONLY the per-post array.`
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
         analysisMethod: hasImages ? `openai-${model}-multimodal` : `openai-${model}-text`,
-        perPostAnalysis: aiResult.posts || [],
+        perPostAnalysis: validatedPosts,
         insights: generatePsychologicalInsights(
           overall.topics,
           overall.emotions,
