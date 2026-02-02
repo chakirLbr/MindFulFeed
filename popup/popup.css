@@ -17,10 +17,10 @@ html,body{ margin:0; padding:0; }
   If we pick an overly wide layout, Chrome can render it as a tiny sliver.
   So we keep a safe default width and make everything responsive.
 */
-html{ width: 420px; height: 360px; }
+html{ width: 420px; height: 390px; }
 body{
   width: 420px;
-  height: 360px;
+  height: 390px;
   margin: 0;
   background: var(--surface);
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
