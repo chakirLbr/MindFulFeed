@@ -679,18 +679,22 @@ OUTPUT
 Return ONLY valid JSON with this structure:
 {
   "posts": [
-    {"topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
     ...
   ]
 }
 
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
 Include for each post:
+- postNumber: the number from the post sequence (1, 2, 3, etc.) - REQUIRED to match responses to posts
 - topic: one of the 4 categories
 - emotion: one of the 4 emotions
-- reason: 1-2 sentence explanation of why you chose this category
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
 - confidence: 0.0 to 1.0 (how confident you are in this classification)
 
-Do NOT compute overall distributions. Return ONLY the per-post array.
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.
 
 Here are the posts:`
           }
