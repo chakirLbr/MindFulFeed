@@ -1131,26 +1131,4 @@ body.dark-mode .aiConfidence {
   }
 }
 
-/* Temporary debug panel (remove later) */
-.debug{
-  max-width: 1100px;
-  margin: 0 auto 24px;
-  padding: 12px 18px;
-}
-.debug summary{
-  cursor: pointer;
-  font-weight: 750;
-  color: var(--text-strong);
-}
-.debug pre{
-  margin: 10px 0 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #fff;
-  border: 1px solid var(--border-light);
-  box-shadow: var(--shadow);
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-size: 12px;
-  color: var(--text-strong);
-}
+
