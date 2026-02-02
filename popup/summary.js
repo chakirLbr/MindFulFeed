@@ -1042,7 +1042,6 @@ function getTopicIcon(topic) {
 }
 
 function getTopicDisplayName(topic) {
-  if (topic === 'Informative') return 'Civic';
   return topic;
 }
 
@@ -1070,7 +1069,7 @@ function getSessionDescription(session) {
 
 function getEmotionLabel(emotion, topic) {
   if (topic === 'Informative' && emotion === 'Heavy') {
-    return 'Civic/Informational tone (Important but emotionally heavy)';
+    return 'Informational tone (Important but emotionally heavy)';
   }
 
   const labels = {
@@ -1097,8 +1096,11 @@ function renderTodaysSessions(sessionHistory) {
 
   // Filter sessions for today
   const todayKey = isoDate(new Date());
+  console.log('[Summary] Today key:', todayKey, 'Current time:', new Date().toISOString());
+
   const todaySessions = sessionHistory.filter(session => {
     const sessionDate = isoDate(new Date(session.endedAt));
+    console.log('[Summary] Session:', session.sessionId, 'endedAt:', session.endedAt, 'date:', new Date(session.endedAt).toISOString(), 'sessionDate:', sessionDate, 'matches today:', sessionDate === todayKey);
     return sessionDate === todayKey;
   });
 
@@ -1376,6 +1378,15 @@ function renderSessionPosts(session) {
     session.platforms = [session.platform || 'instagram'];
   }
 
+  // Check if session is from today or yesterday (for thumbnail display)
+  const now = Date.now();
+  const sessionDate = isoDate(new Date(session.endedAt));
+  const today = isoDate(new Date(now));
+  const yesterday = isoDate(new Date(now - 24 * 60 * 60 * 1000));
+  const isRecentSession = (sessionDate === today || sessionDate === yesterday);
+
+  console.log('[Modal] Session date:', sessionDate, 'Today:', today, 'Yesterday:', yesterday, 'Show thumbnails:', isRecentSession);
+
   console.log('[Modal] Rendering session:', {
     platform: session.platform,
     isMultiPlatform: session.isMultiPlatform,
@@ -1415,21 +1426,29 @@ function renderSessionPosts(session) {
       ? `${dwellSeconds}s`
       : `${Math.floor(dwellSeconds / 60)}m ${dwellSeconds % 60}s`;
 
-    // Image section - use emojis to avoid CORS issues with Instagram CDN
-    // Instagram images are blocked by CORS policy, so we use emoji placeholders
+    // Image section - show actual thumbnails for today/yesterday, emoji placeholders for older sessions
     let imageHtml;
     if (isVideo && item.thumbnail) {
-      // YouTube thumbnails work fine
-      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='🎥'" />`;
+      // YouTube thumbnails always work (no CORS issues)
+      imageHtml = `<img src="${item.thumbnail}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<span class=\\'emoji-placeholder\\'>🎥</span>'" />`;
+    } else if (isRecentSession && item.imageBase64) {
+      // Instagram posts from today/yesterday - use base64 image
+      imageHtml = `<img src="${item.imageBase64}" alt="${itemLabel} ${index + 1}" onerror="this.parentElement.innerHTML='<img src=\\'../logo/instagram-icon.svg\\' class=\\'emoji-placeholder\\' alt=\\'Instagram\\' />'" />`;
     } else {
-      // Instagram posts - use emoji to avoid CORS errors
-      imageHtml = isVideo ? '🎥' : '📷';
+      // Older sessions or missing images - use bigger emoji placeholder
+      if (isVideo) {
+        imageHtml = `<span class="emoji-placeholder">🎥</span>`;
+      } else {
+        imageHtml = `<img src="../logo/instagram-icon.svg" class="emoji-placeholder" alt="Instagram" />`;
+      }
     }
 
     // Topic and emotion tags
     const topic = itemAnalysis.topic || 'Unknown';
     const emotion = itemAnalysis.emotion || 'Neutral';
     const engagement = itemAnalysis.engagement || '';
+    const reason = itemAnalysis.reason || '';
+    const confidence = itemAnalysis.confidence !== undefined ? itemAnalysis.confidence : null;
 
     const topicClass = topic.toLowerCase();
     const topicColor = getTopicColor(topic);
@@ -1449,6 +1468,10 @@ function renderSessionPosts(session) {
       ? descriptionText.substring(0, 150) + '...'
       : descriptionText;
 
+    const hasClassificationDetails = reason && confidence !== null;
+    const confidencePercent = confidence !== null ? Math.round(confidence * 100) : 0;
+    const confidenceColor = confidence >= 0.8 ? '#22c55e' : confidence >= 0.5 ? '#f59e0b' : '#ef4444';
+
     itemCard.innerHTML = `
       <div class="postImage">
         ${imageHtml}
@@ -1466,15 +1489,43 @@ function renderSessionPosts(session) {
           </span>
           ${emotion !== 'Unknown' ? `<span class="postTag emotion">${emotion}</span>` : ''}
           ${engagement ? `<span class="postTag">${engagement}</span>` : ''}
+          ${hasClassificationDetails ? `<button class="aiDetailsBtn" data-post-index="${index}">🤖 AI Details</button>` : ''}
         </div>
+        ${hasClassificationDetails ? `
+          <div class="aiDetails" id="aiDetails-${index}" style="display: none;">
+            <div class="aiDetailsHeader">
+              <span class="aiDetailsTitle">AI Classification</span>
+              <span class="aiConfidence" style="color: ${confidenceColor}">
+                Confidence: ${confidencePercent}%
+              </span>
+            </div>
+            <div class="aiReason">${reason}</div>
+          </div>
+        ` : ''}
       </div>
     `;
 
-    // Make card clickable to open the content
+    // Add AI details toggle functionality
+    if (hasClassificationDetails) {
+      const aiDetailsBtn = itemCard.querySelector('.aiDetailsBtn');
+      const aiDetailsDiv = itemCard.querySelector(`#aiDetails-${index}`);
+
+      aiDetailsBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // Prevent card click
+        const isVisible = aiDetailsDiv.style.display !== 'none';
+        aiDetailsDiv.style.display = isVisible ? 'none' : 'block';
+        aiDetailsBtn.textContent = isVisible ? '🤖 AI Details' : '🤖 Hide Details';
+      });
+    }
+
+    // Make card clickable to open the content (but not if clicking AI details button)
     if (item.href) {
       itemCard.style.cursor = 'pointer';
-      itemCard.addEventListener('click', () => {
-        window.open(item.href, '_blank');
+      itemCard.addEventListener('click', (e) => {
+        // Don't open link if clicking on AI details button or details section
+        if (!e.target.closest('.aiDetailsBtn') && !e.target.closest('.aiDetails')) {
+          window.open(item.href, '_blank');
+        }
       });
     }
 

@@ -43,24 +43,29 @@ async function sendMessage(msg) {
 // Load achievements data
 async function loadAchievements() {
   try {
-    const res = await sendMessage({ type: 'GET_DASHBOARD' });
+    // Use GET_LEADERBOARD to get consistent data (same as stats page)
+    const res = await sendMessage({ type: 'GET_LEADERBOARD' });
 
     if (!res || !res.ok) {
       console.error('[Achievements] Failed to load data');
       return;
     }
 
-    // Get achievement data
-    const achievementsData = res.achievements || {};
+    // Get data from leaderboard response
     const stats = res.stats || {};
     const totalPoints = res.totalPoints || 0;
-    const level = res.level || 1;
+    const level = res.level || { level: 1, title: 'Novice', icon: '🌱', color: '#94a3b8' };
 
     // Update level and points display
     updateProgress(level, totalPoints);
 
-    // Load all achievements from backend
-    allAchievements = Object.values(achievementsData);
+    // Load achievements
+    const achievementsRes = await sendMessage({ type: 'GET_ACHIEVEMENTS' });
+    if (achievementsRes && achievementsRes.ok) {
+      allAchievements = achievementsRes.achievements || [];
+    } else {
+      allAchievements = [];
+    }
 
     // Calculate stats
     const unlocked = allAchievements.filter(a => a.unlocked).length;
@@ -82,19 +87,35 @@ async function loadAchievements() {
 
 // Update progress display
 function updateProgress(level, totalPoints) {
-  document.getElementById('levelNumber').textContent = level;
+  // Handle level object from GAMIFICATION system
+  const levelNum = level.level || 1;
+  const levelIcon = level.icon || '🌱';
+  const levelTitle = level.title || 'Novice';
+
+  // Update level display with icon
+  const levelNumberEl = document.getElementById('levelNumber');
+  if (levelNumberEl) {
+    levelNumberEl.textContent = levelIcon + ' ' + levelNum;
+  }
+
+  // Update total points
   document.getElementById('totalPoints').textContent = totalPoints;
 
-  // Calculate next level (100 points per level)
-  const pointsPerLevel = 100;
-  const currentLevelPoints = (level - 1) * pointsPerLevel;
-  const nextLevelPoints = level * pointsPerLevel;
-  const pointsInCurrentLevel = totalPoints - currentLevelPoints;
-  const progressPercent = (pointsInCurrentLevel / pointsPerLevel) * 100;
+  // Use progress from level object if available
+  if (level.progress) {
+    const current = level.progress.current || 0;
+    const required = level.progress.required || 100;
+    const progressPercent = level.progress.percentage || 0;
 
-  document.getElementById('currentPoints').textContent = pointsInCurrentLevel;
-  document.getElementById('nextLevelPoints').textContent = pointsPerLevel;
-  document.getElementById('progressFill').style.width = `${Math.min(progressPercent, 100)}%`;
+    document.getElementById('currentPoints').textContent = current;
+    document.getElementById('nextLevelPoints').textContent = required;
+    document.getElementById('progressFill').style.width = `${Math.min(progressPercent, 100)}%`;
+  } else {
+    // Max level reached
+    document.getElementById('currentPoints').textContent = totalPoints;
+    document.getElementById('nextLevelPoints').textContent = totalPoints;
+    document.getElementById('progressFill').style.width = '100%';
+  }
 }
 
 // Render achievements

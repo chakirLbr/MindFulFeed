@@ -35,6 +35,90 @@ const AI_ANALYSIS = (() => {
   };
 
   /**
+   * Compute overall topic/emotion distributions from per-post labels
+   * Uses dwell time weighting and handles rounding to ensure sum = 1.00
+   * @param {Array} posts - Array of {topic, emotion, reason, confidence}
+   * @param {Array} dwellSeconds - Dwell time in seconds for each post
+   * @returns {Object} {topics: {}, emotions: {}}
+   */
+  function computeOverall(posts, dwellSeconds) {
+    const topics = ["Educational", "Entertainment", "Social", "Informative"];
+    const emotions = ["Positive", "Negative", "Neutral", "Mixed"];
+
+    const topicSum = Object.fromEntries(topics.map(t => [t, 0]));
+    const emoSum = Object.fromEntries(emotions.map(e => [e, 0]));
+
+    const total = dwellSeconds.reduce((a, b) => a + b, 0) || 1;
+
+    posts.forEach((p, i) => {
+      const w = (dwellSeconds[i] || 0) / total;
+      if (topicSum[p.topic] !== undefined) topicSum[p.topic] += w;
+      if (emoSum[p.emotion] !== undefined) emoSum[p.emotion] += w;
+    });
+
+    // round to 2 decimals while keeping sum ~ 1.00
+    const round2 = (obj) => {
+      const entries = Object.entries(obj).map(([k, v]) => [k, Math.round(v * 100) / 100]);
+      // fix rounding drift
+      const sum = entries.reduce((a, [, v]) => a + v, 0);
+      const drift = Math.round((1 - sum) * 100) / 100;
+      // add drift to the largest value
+      entries.sort((a, b) => b[1] - a[1]);
+      entries[0][1] = Math.round((entries[0][1] + drift) * 100) / 100;
+      return Object.fromEntries(entries);
+    };
+
+    return { topics: round2(topicSum), emotions: round2(emoSum) };
+  }
+
+  /**
+   * Validate and map AI responses by postNumber to ensure correct alignment
+   * @param {Array} aiPosts - AI response posts array with postNumber field
+   * @param {number} expectedCount - Expected number of posts
+   * @returns {Array} Validated and correctly ordered posts array
+   */
+  function validateAndMapAIResponses(aiPosts, expectedCount) {
+    console.log('[AI Analysis] Validating AI responses...');
+    console.log('[AI Analysis] Expected:', expectedCount, 'posts, Received:', aiPosts.length, 'responses');
+
+    // Create a map by postNumber
+    const postMap = {};
+    for (const post of aiPosts) {
+      if (post.postNumber !== undefined) {
+        postMap[post.postNumber] = post;
+      }
+    }
+
+    // Create ordered array with all posts (1 to expectedCount)
+    const validatedPosts = [];
+    let missingCount = 0;
+    for (let i = 1; i <= expectedCount; i++) {
+      if (postMap[i]) {
+        validatedPosts.push(postMap[i]);
+      } else {
+        // Missing post - use fallback
+        console.warn(`[AI Analysis] Missing classification for post ${i}, using fallback`);
+        validatedPosts.push({
+          postNumber: i,
+          topic: 'Entertainment',
+          emotion: 'Neutral',
+          reason: 'Classification unavailable - using default category',
+          confidence: 0.1
+        });
+        missingCount++;
+      }
+    }
+
+    if (missingCount > 0) {
+      console.warn(`[AI Analysis] ⚠️  ${missingCount} posts missing from AI response, filled with defaults`);
+    } else {
+      console.log('[AI Analysis] ✅ All posts validated successfully');
+    }
+
+    return validatedPosts;
+  }
+
+  /**
    * Analyzes a batch of posts using AI (multimodal: text + images)
    * @param {Array} posts - Array of {caption, href, dwellMs, imageUrl}
    * @param {string} apiKey - Optional API key for Claude or similar service
@@ -202,33 +286,59 @@ const AI_ANALYSIS = (() => {
         const messages = [
           {
             role: 'system',
-            content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+            content: 'You are classifying social media feed items for a digital wellbeing tool.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
           },
           {
             role: 'user',
-            content: `Analyze these ${topPosts.length} social media posts and categorize them:
+            content: `TASK
+For each post, choose EXACTLY ONE topic and EXACTLY ONE emotion.
+
+TOPIC (use these strict definitions)
+- Educational: only if the post is clearly intended for learning/studying, e.g., tutorial, lesson, step-by-step guide, explanation meant to teach a skill or concept, course-like content.
+- Informative: factual content meant to inform or document (news, reporting, documentaries, case studies, summaries, "what happened", explanations without teaching steps).
+- Entertainment: primarily for fun, humor, excitement, story, spectacle, challenges, reactions, giveaways, social experiments, "bring customers to restaurants" style content.
+- Social: primarily about relationships, social life, community interaction, identity, interpersonal drama or updates.
+
+IMPORTANT RULES
+- If it's not clearly a tutorial/lesson, it is NOT Educational.
+- Business case studies / documentaries / "we tried X and got result Y" → Informative (unless it is a tutorial).
+- Story-driven "giveback" / "social experiment" content → Entertainment.
+- If unsure between Informative and Entertainment:
+  - choose Informative if it's documentary/reporting style,
+  - choose Entertainment if it's challenge/story/creator spectacle.
+
+EMOTION (viewer tone)
+- Positive: uplifting, funny, inspiring, satisfying
+- Negative: sad, angry, fearful, stressful
+- Neutral: emotionally flat / purely factual
+- Mixed: clearly both positive and negative cues
 
 POSTS:
 ${captions}
 
-Provide a JSON response with:
-1. For each post (by number), classify:
-   - topic: Educational, Entertainment, Social, or Informative
-   - emotion: Positive, Negative, Neutral, or Mixed
-
-2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
+Dwell times (seconds):
 ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
+OUTPUT
+Return ONLY valid JSON with this structure:
 {
-  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
-  "overall": {
-    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
-    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
-  }
+  "posts": [
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
+    ...
+  ]
 }
 
-Do NOT add explanations. Return ONLY the JSON object.`
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
+Include for each post:
+- postNumber: the number from the POSTS list (1, 2, 3, etc.) - REQUIRED to match responses to posts
+- topic: one of the 4 categories
+- emotion: one of the 4 emotions
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
+- confidence: 0.0 to 1.0 (how confident you are in this classification)
+
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.`
           }
         ];
 
@@ -255,24 +365,35 @@ Do NOT add explanations. Return ONLY the JSON object.`
 
         const aiResult = extractJSON(content);
 
-        if (!aiResult) {
+        if (!aiResult || !aiResult.posts) {
           throw new Error('No valid JSON found in LM Studio response');
         }
 
         console.log('[AI Analysis] LM Studio response received:', aiResult);
 
+        // Validate and map AI responses by postNumber
+        const validatedPosts = validateAndMapAIResponses(aiResult.posts, topPosts.length);
+
+        console.log('[AI Analysis] Per-post classifications:', validatedPosts.map((p, i) => `Post ${i+1}: ${p.topic} (${p.confidence}): ${p.reason}`));
+
+        // Compute overall distributions using JS (not LLM)
+        const dwellSeconds = topPosts.map(p => Math.round(p.dwellMs / 1000));
+        const overall = computeOverall(validatedPosts, dwellSeconds);
+
+        console.log('[AI Analysis] Computed overall distributions:', overall);
+
         // Convert to our format
         return {
-          topics: aiResult.overall.topics,
-          emotions: aiResult.overall.emotions,
+          topics: overall.topics,
+          emotions: overall.emotions,
           engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
           totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
           postsAnalyzed: posts.length,
           analysisMethod: 'local-lmstudio-text',
-          perPostAnalysis: aiResult.posts || [],
+          perPostAnalysis: validatedPosts,
           insights: generatePsychologicalInsights(
-            aiResult.overall.topics,
-            aiResult.overall.emotions,
+            overall.topics,
+            overall.emotions,
             { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
             posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
           )
@@ -384,33 +505,59 @@ Do NOT add explanations. Return ONLY the JSON object.`
     const messages = [
       {
         role: 'system',
-        content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+        content: 'You are classifying social media feed items for a digital wellbeing tool.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
       },
       {
         role: 'user',
-        content: `Analyze these ${posts.length} social media posts and categorize them based on both captions and image descriptions:
+        content: `TASK
+For each post, choose EXACTLY ONE topic and EXACTLY ONE emotion.
+
+TOPIC (use these strict definitions)
+- Educational: only if the post is clearly intended for learning/studying, e.g., tutorial, lesson, step-by-step guide, explanation meant to teach a skill or concept, course-like content.
+- Informative: factual content meant to inform or document (news, reporting, documentaries, case studies, summaries, "what happened", explanations without teaching steps).
+- Entertainment: primarily for fun, humor, excitement, story, spectacle, challenges, reactions, giveaways, social experiments, "bring customers to restaurants" style content.
+- Social: primarily about relationships, social life, community interaction, identity, interpersonal drama or updates.
+
+IMPORTANT RULES
+- If it's not clearly a tutorial/lesson, it is NOT Educational.
+- Business case studies / documentaries / "we tried X and got result Y" → Informative (unless it is a tutorial).
+- Story-driven "giveback" / "social experiment" content → Entertainment.
+- If unsure between Informative and Entertainment:
+  - choose Informative if it's documentary/reporting style,
+  - choose Entertainment if it's challenge/story/creator spectacle.
+
+EMOTION (viewer tone)
+- Positive: uplifting, funny, inspiring, satisfying
+- Negative: sad, angry, fearful, stressful
+- Neutral: emotionally flat / purely factual
+- Mixed: clearly both positive and negative cues
 
 POSTS:
 ${postsText}
 
-Provide a JSON response with:
-1. For each post (by number), classify:
-   - topic: Educational, Entertainment, Social, or Informative
-   - emotion: Positive, Negative, Neutral, or Mixed
-
-2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
+Dwell times (seconds):
 ${posts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
+OUTPUT
+Return ONLY valid JSON with this structure:
 {
-  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
-  "overall": {
-    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
-    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
-  }
+  "posts": [
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
+    ...
+  ]
 }
 
-Do NOT add explanations. Return ONLY the JSON object.`
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
+Include for each post:
+- postNumber: the number from the POSTS list (1, 2, 3, etc.) - REQUIRED to match responses to posts
+- topic: one of the 4 categories
+- emotion: one of the 4 emotions
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
+- confidence: 0.0 to 1.0 (how confident you are in this classification)
+
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.`
       }
     ];
 
@@ -437,12 +584,28 @@ Do NOT add explanations. Return ONLY the JSON object.`
 
     const aiResult = extractJSON(content);
 
-    if (!aiResult) {
+    if (!aiResult || !aiResult.posts) {
       throw new Error('No valid JSON found in LM Studio Stage 2 response');
     }
 
     console.log('[AI Analysis - Stage 2] Categorization completed:', aiResult);
-    return aiResult;
+
+    // Validate and map AI responses by postNumber
+    const validatedPosts = validateAndMapAIResponses(aiResult.posts, posts.length);
+
+    console.log('[AI Analysis - Stage 2] Per-post classifications:', validatedPosts.map((p, i) => `Post ${i+1}: ${p.topic} (${p.confidence}): ${p.reason}`));
+
+    // Compute overall distributions using JS (not LLM)
+    const dwellSeconds = posts.map(p => Math.round(p.dwellMs / 1000));
+    const overall = computeOverall(validatedPosts, dwellSeconds);
+
+    console.log('[AI Analysis - Stage 2] Computed overall distributions:', overall);
+
+    // Return both per-post and computed overall
+    return {
+      posts: validatedPosts,
+      overall: overall
+    };
   }
 
   /**
@@ -486,23 +649,52 @@ Do NOT add explanations. Return ONLY the JSON object.`
         const content = [
           {
             type: 'text',
-            text: `Analyze these ${topPosts.length} Instagram posts and categorize them based on BOTH images AND captions:
+            text: `TASK
+For each post, choose EXACTLY ONE topic and EXACTLY ONE emotion based on BOTH images AND captions.
 
-Categorize each post:
-- topic: Educational, Entertainment, Social, or Informative
-- emotion: Positive, Negative, Neutral, or Mixed
+TOPIC (use these strict definitions)
+- Educational: only if the post is clearly intended for learning/studying, e.g., tutorial, lesson, step-by-step guide, explanation meant to teach a skill or concept, course-like content.
+- Informative: factual content meant to inform or document (news, reporting, documentaries, case studies, summaries, "what happened", explanations without teaching steps).
+- Entertainment: primarily for fun, humor, excitement, story, spectacle, challenges, reactions, giveaways, social experiments, "bring customers to restaurants" style content.
+- Social: primarily about relationships, social life, community interaction, identity, interpersonal drama or updates.
 
-Then provide overall time distribution (as percentages) weighted by these dwell times:
+IMPORTANT RULES
+- If it's not clearly a tutorial/lesson, it is NOT Educational.
+- Business case studies / documentaries / "we tried X and got result Y" → Informative (unless it is a tutorial).
+- Story-driven "giveback" / "social experiment" content → Entertainment.
+- If unsure between Informative and Entertainment:
+  - choose Informative if it's documentary/reporting style,
+  - choose Entertainment if it's challenge/story/creator spectacle.
+
+EMOTION (viewer tone)
+- Positive: uplifting, funny, inspiring, satisfying
+- Negative: sad, angry, fearful, stressful
+- Neutral: emotionally flat / purely factual
+- Mixed: clearly both positive and negative cues
+
+Dwell times (seconds):
 ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
+OUTPUT
+Return ONLY valid JSON with this structure:
 {
-  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
-  "overall": {
-    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
-    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
-  }
+  "posts": [
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
+    ...
+  ]
 }
+
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
+Include for each post:
+- postNumber: the number from the post sequence (1, 2, 3, etc.) - REQUIRED to match responses to posts
+- topic: one of the 4 categories
+- emotion: one of the 4 emotions
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
+- confidence: 0.0 to 1.0 (how confident you are in this classification)
+
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.
 
 Here are the posts:`
           }
@@ -537,7 +729,7 @@ Here are the posts:`
         messages = [
           {
             role: 'system',
-            content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+            content: 'You are classifying social media feed items for a digital wellbeing tool.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
           },
           {
             role: 'user',
@@ -552,31 +744,59 @@ Here are the posts:`
         messages = [
           {
             role: 'system',
-            content: 'You are an expert psychologist analyzing social media consumption patterns. Be precise and use the exact category names provided.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
+            content: 'You are classifying social media feed items for a digital wellbeing tool.\n\nIMPORTANT: Your entire response must be ONLY valid JSON. Do not include any explanatory text, descriptions, or commentary. Return ONLY the JSON object, nothing else.'
           },
           {
             role: 'user',
-            content: `Analyze these ${topPosts.length} social media posts and categorize them:
+            content: `TASK
+For each post, choose EXACTLY ONE topic and EXACTLY ONE emotion.
+
+TOPIC (use these strict definitions)
+- Educational: only if the post is clearly intended for learning/studying, e.g., tutorial, lesson, step-by-step guide, explanation meant to teach a skill or concept, course-like content.
+- Informative: factual content meant to inform or document (news, reporting, documentaries, case studies, summaries, "what happened", explanations without teaching steps).
+- Entertainment: primarily for fun, humor, excitement, story, spectacle, challenges, reactions, giveaways, social experiments, "bring customers to restaurants" style content.
+- Social: primarily about relationships, social life, community interaction, identity, interpersonal drama or updates.
+
+IMPORTANT RULES
+- If it's not clearly a tutorial/lesson, it is NOT Educational.
+- Business case studies / documentaries / "we tried X and got result Y" → Informative (unless it is a tutorial).
+- Story-driven "giveback" / "social experiment" content → Entertainment.
+- If unsure between Informative and Entertainment:
+  - choose Informative if it's documentary/reporting style,
+  - choose Entertainment if it's challenge/story/creator spectacle.
+
+EMOTION (viewer tone)
+- Positive: uplifting, funny, inspiring, satisfying
+- Negative: sad, angry, fearful, stressful
+- Neutral: emotionally flat / purely factual
+- Mixed: clearly both positive and negative cues
 
 POSTS:
 ${captions}
 
-Provide a JSON response with:
-1. For each post (by number), classify:
-   - topic: Educational, Entertainment, Social, or Informative
-   - emotion: Positive, Negative, Neutral, or Mixed
-
-2. Overall time distribution (as percentages) across all topics and emotions, weighted by these dwell times:
+Dwell times (seconds):
 ${topPosts.map((p, i) => `Post ${i+1}: ${Math.round(p.dwellMs/1000)}s`).join(', ')}
 
-RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
+OUTPUT
+Return ONLY valid JSON with this structure:
 {
-  "posts": [{"topic": "Social", "emotion": "Positive"}, ...],
-  "overall": {
-    "topics": {"Educational": 0.15, "Social": 0.25, "Entertainment": 0.35, "Informative": 0.25},
-    "emotions": {"Positive": 0.60, "Neutral": 0.30, ...}
-  }
-}`
+  "posts": [
+    {"postNumber": 1, "topic": "Entertainment", "emotion": "Positive", "reason": "Challenge/giveaway content focused on bringing customers to restaurants", "confidence": 0.9},
+    {"postNumber": 2, "topic": "Informative", "emotion": "Neutral", "reason": "News report about political events", "confidence": 0.85},
+    ...
+  ]
+}
+
+CRITICAL: You MUST include ALL ${topPosts.length} posts in your response in the SAME ORDER as the input.
+
+Include for each post:
+- postNumber: the number from the POSTS list (1, 2, 3, etc.) - REQUIRED to match responses to posts
+- topic: one of the 4 categories
+- emotion: one of the 4 emotions
+- reason: 1-2 sentence explanation of why you chose this category (based on THIS specific post's content)
+- confidence: 0.0 to 1.0 (how confident you are in this classification)
+
+Do NOT compute overall distributions. Return ONLY the per-post array with ALL ${topPosts.length} posts.`
           }
         ];
       }
@@ -608,27 +828,37 @@ RESPONSE FORMAT - Return ONLY this JSON structure with NO additional text:
       // Extract JSON from response
       const aiResult = extractJSON(content);
 
-      if (!aiResult) {
+      if (!aiResult || !aiResult.posts) {
         throw new Error('No valid JSON found in OpenAI response');
       }
 
       console.log('[AI Analysis] ✅ OpenAI response received and parsed successfully');
-      console.log('[AI Analysis] 📈 Topics detected:', Object.keys(aiResult.overall.topics).filter(t => aiResult.overall.topics[t] > 0.05).join(', '));
-      console.log('[AI Analysis] 😊 Emotions detected:', Object.keys(aiResult.overall.emotions).filter(e => aiResult.overall.emotions[e] > 0.05).join(', '));
+
+      // Validate and map AI responses by postNumber
+      const validatedPosts = validateAndMapAIResponses(aiResult.posts, topPosts.length);
+
+      console.log('[AI Analysis] Per-post classifications:', validatedPosts.map((p, i) => `Post ${i+1}: ${p.topic} (${p.confidence}): ${p.reason}`));
+
+      // Compute overall distributions using JS (not LLM)
+      const dwellSeconds = topPosts.map(p => Math.round(p.dwellMs / 1000));
+      const overall = computeOverall(validatedPosts, dwellSeconds);
+
+      console.log('[AI Analysis] 📈 Topics detected:', Object.keys(overall.topics).filter(t => overall.topics[t] > 0.05).join(', '));
+      console.log('[AI Analysis] 😊 Emotions detected:', Object.keys(overall.emotions).filter(e => overall.emotions[e] > 0.05).join(', '));
       console.log('═══════════════════════════════════════════════════════════');
 
       // Convert to our format
       return {
-        topics: aiResult.overall.topics,
-        emotions: aiResult.overall.emotions,
+        topics: overall.topics,
+        emotions: overall.emotions,
         engagement: { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
         totalDwellMs: posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0),
         postsAnalyzed: posts.length,
         analysisMethod: hasImages ? `openai-${model}-multimodal` : `openai-${model}-text`,
-        perPostAnalysis: aiResult.posts || [],
+        perPostAnalysis: validatedPosts,
         insights: generatePsychologicalInsights(
-          aiResult.overall.topics,
-          aiResult.overall.emotions,
+          overall.topics,
+          overall.emotions,
           { Mindful: 0.5, Mindless: 0.3, Engaging: 0.2 },
           posts.reduce((sum, p) => sum + (p.dwellMs || 0), 0)
         )

@@ -441,39 +441,75 @@ textarea:focus {
 /* Nudge Cards */
 #nudgesContainer {
   margin-bottom: 2rem;
+  margin-top: 0;
 }
 
 .nudge-card {
   background: linear-gradient(135deg, #FFF9E6 0%, #FFF3D6 100%);
-  border: 2px solid #FFD700;
-  border-left: 6px solid #FFB800;
-  border-radius: 12px;
-  padding: 1.5rem;
+  border: 3px solid #FFD700;
+  border-left: 8px solid #FFB800;
+  border-radius: 16px;
+  padding: 2rem;
   margin-bottom: 1.5rem;
-  box-shadow: 0 4px 12px rgba(255, 184, 0, 0.2);
-  animation: nudgeSlideIn 0.4s ease-out;
+  box-shadow: 0 8px 24px rgba(255, 184, 0, 0.3);
+  animation: nudgeSlideIn 0.5s ease-out, nudgePulse 2s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Add a subtle glow effect */
+.nudge-card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(45deg, #FFD700, #FFB800, #FFD700);
+  border-radius: 16px;
+  z-index: -1;
+  opacity: 0;
+  animation: nudgeGlow 2s ease-in-out infinite;
 }
 
 @keyframes nudgeSlideIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-20px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nudgePulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(255, 184, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 8px 32px rgba(255, 184, 0, 0.5);
+  }
+}
+
+@keyframes nudgeGlow {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.2;
   }
 }
 
 .nudge-card h3 {
   margin: 0 0 1rem 0;
   color: #8B6914;
-  font-size: 1.125rem;
-  font-weight: 600;
-  line-height: 1.5;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.4;
   display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .nudge-card .nudge-action {
@@ -496,4 +532,20 @@ textarea:focus {
 
 .nudge-card .nudge-action:active {
   transform: translateY(0);
+}
+
+/* Dark mode support for nudges */
+body.dark-mode .nudge-card {
+  background: linear-gradient(135deg, #3D3520 0%, #2D2818 100%);
+  border-color: #FFD700;
+  border-left-color: #FFB800;
+  box-shadow: 0 8px 24px rgba(255, 184, 0, 0.2);
+}
+
+body.dark-mode .nudge-card h3 {
+  color: #FFD700;
+}
+
+body.dark-mode .nudge-card::before {
+  background: linear-gradient(45deg, #FFD700, #FFB800, #FFD700);
 }

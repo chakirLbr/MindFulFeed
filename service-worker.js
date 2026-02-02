@@ -137,6 +137,67 @@ async function addToSessionHistory(session) {
   });
 }
 
+async function cleanupOldThumbnails() {
+  const history = await getSessionHistory();
+  if (history.length === 0) return;
+
+  const now = Date.now();
+  const today = isoDate(new Date(now));
+  const yesterday = isoDate(new Date(now - 24 * 60 * 60 * 1000));
+
+  console.log('[MindfulFeed] Cleaning up thumbnails older than yesterday...');
+  console.log('[MindfulFeed] Today:', today, 'Yesterday:', yesterday);
+
+  let cleaned = 0;
+  const updatedHistory = history.map(session => {
+    const sessionDate = isoDate(new Date(session.endedAt));
+
+    // Keep thumbnails only for today and yesterday
+    if (sessionDate !== today && sessionDate !== yesterday) {
+      // Remove imageBase64 from posts to save storage
+      if (session.raw && session.raw.posts) {
+        const hadThumbnails = session.raw.posts.some(p => p.imageBase64);
+        if (hadThumbnails) {
+          session.raw.posts = session.raw.posts.map(p => {
+            const { imageBase64, ...rest } = p;
+            return rest;
+          });
+          cleaned++;
+        }
+      }
+
+      // Also handle multi-platform format
+      if (session.raw && session.raw.platforms) {
+        for (const platform in session.raw.platforms) {
+          const data = session.raw.platforms[platform];
+          const itemsKey = platform === 'youtube' ? 'videos' : 'posts';
+          if (data[itemsKey]) {
+            const hadThumbnails = data[itemsKey].some(item => item.imageBase64 || item.thumbnail);
+            if (hadThumbnails) {
+              data[itemsKey] = data[itemsKey].map(item => {
+                const { imageBase64, ...rest } = item;
+                return rest;
+              });
+              cleaned++;
+            }
+          }
+        }
+      }
+    }
+
+    return session;
+  });
+
+  if (cleaned > 0) {
+    console.log(`[MindfulFeed] Removed thumbnails from ${cleaned} old session(s)`);
+    await new Promise((resolve) => {
+      chrome.storage.local.set({ [SESSION_HISTORY_KEY]: updatedHistory }, () => resolve());
+    });
+  } else {
+    console.log('[MindfulFeed] No old thumbnails to clean up');
+  }
+}
+
 async function getIncrementalAnalysis() {
   return new Promise((resolve) => {
     chrome.storage.local.get([INCREMENTAL_ANALYSIS_KEY], (r) => resolve(r[INCREMENTAL_ANALYSIS_KEY] || { analyzedPosts: [], results: null }));
@@ -766,6 +827,11 @@ async function stop() {
     elapsedMs: durationMs
   };
 
+  console.log('[MindfulFeed] ========================================');
+  console.log('[MindfulFeed] STOP called - setting isTracking = false');
+  console.log('[MindfulFeed] Duration:', Math.round(durationMs / 1000), 'seconds');
+  console.log('[MindfulFeed] ========================================');
+
   // Mark a short window where we still accept the final raw snapshot even after isTracking becomes false.
   const meta = (await getSessionMeta()) || {};
   const acceptFinalizeUntil = getNow() + 5000;
@@ -778,6 +844,7 @@ async function stop() {
 
   // Store timer state immediately (UI responsiveness)
   await setState(next);
+  console.log('[MindfulFeed] ✓ State updated: isTracking = false');
 
   // Tell ALL tracked tabs to finalize and push last snapshot
   const trackedTabs = meta.trackedTabs || [];
@@ -808,7 +875,9 @@ async function stop() {
 
   // Process in background (non-blocking)
   processSessionInBackground(meta, endedAt, durationMs).catch(err => {
-    console.error('[MindfulFeed] Background processing error:', err);
+    console.error('[MindfulFeed] ❌ CRITICAL: Background processing error:', err);
+    console.error('[MindfulFeed] Error stack:', err.stack);
+    console.error('[MindfulFeed] Session data may not have been saved!');
     setProcessingStatus({
       isProcessing: false,
       error: err.message,
@@ -837,7 +906,12 @@ async function stop() {
 
 // Background processing function
 async function processSessionInBackground(meta, endedAt, durationMs) {
+  console.log('[MindfulFeed] ========================================');
   console.log('[MindfulFeed] Starting background session processing...');
+  console.log('[MindfulFeed] Metadata:', meta);
+  console.log('[MindfulFeed] EndedAt:', new Date(endedAt).toISOString());
+  console.log('[MindfulFeed] Duration:', Math.round(durationMs / 1000), 'seconds');
+  console.log('[MindfulFeed] ========================================');
 
   // Give content scripts a brief moment to send their final snapshots
   await new Promise((r) => setTimeout(r, 500));
@@ -969,10 +1043,25 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   });
 
   await setLastSession(session);
+  console.log('[MindfulFeed] ✓ Session saved to mf_last_session');
 
   // Add to session history (keep last 20 sessions)
+  console.log('[MindfulFeed] Adding session to history...');
   await addToSessionHistory(session);
-  console.log('[MindfulFeed] Session added to history successfully');
+  console.log('[MindfulFeed] ✓ Session added to history successfully');
+
+  // Verify it was added
+  const history = await getSessionHistory();
+  console.log('[MindfulFeed] Current history length:', history.length);
+  console.log('[MindfulFeed] Latest session in history:', {
+    sessionId: history[0]?.sessionId,
+    endedAt: history[0]?.endedAt,
+    date: history[0]?.endedAt ? new Date(history[0].endedAt).toISOString() : 'N/A'
+  });
+
+  // Clean up thumbnails from sessions older than yesterday
+  await cleanupOldThumbnails();
+  console.log('[MindfulFeed] ✓ Old thumbnails cleaned up');
 
   // Aggregate into daily bucket
   const daily = await getDaily();
@@ -1048,8 +1137,10 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
   }
 
   // Clear raw session snapshot after saving into last session
+  console.log('[MindfulFeed] Clearing raw session and metadata...');
   await setRawSession(null);
   await setSessionMeta(null);
+  console.log('[MindfulFeed] ✓ Raw session and metadata cleared');
 
   // Mark as complete
   await setProcessingStatus({
@@ -1059,7 +1150,9 @@ async function processSessionInBackground(meta, endedAt, durationMs) {
     completedAt: getNow()
   });
 
+  console.log('[MindfulFeed] ========================================');
   console.log('[MindfulFeed] Background session processing complete');
+  console.log('[MindfulFeed] ========================================');
 
   // Open reflection page after analysis completes
   // First check if a reflection page is already open to avoid duplicates
@@ -1358,13 +1451,21 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const totalPoints = await GAMIFICATION.calculateTotalPoints();
       const level = GAMIFICATION.calculateLevel(totalPoints);
       const leaderboardData = await GAMIFICATION.updateLeaderboard(stats, level);
+      const username = leaderboardData.userEntry?.username || 'Anonymous Player';
 
-      sendResponse({ ok: true, ...leaderboardData });
+      sendResponse({
+        ok: true,
+        stats,
+        totalPoints,
+        level,
+        username,
+        ...leaderboardData
+      });
       return;
     }
 
     if (msg.type === "GET_ACHIEVEMENTS") {
-      const achievements = await GAMIFICATION.getAchievements();
+      const achievements = await GAMIFICATION.getAllAchievements();
       sendResponse({ ok: true, achievements });
       return;
     }

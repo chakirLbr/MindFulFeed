@@ -222,6 +222,30 @@ const GAMIFICATION = (() => {
   }
 
   /**
+   * Get all achievements (both locked and unlocked) for display
+   */
+  async function getAllAchievements() {
+    const unlocked = await getAchievements();
+    const unlockedIds = new Set(unlocked.map(a => a.id));
+
+    // Convert ACHIEVEMENTS object to array with unlock status
+    const allAchievements = Object.values(ACHIEVEMENTS).map(achievement => {
+      const isUnlocked = unlockedIds.has(achievement.id);
+      const unlockedData = unlocked.find(a => a.id === achievement.id);
+
+      return {
+        ...achievement,
+        unlocked: isUnlocked,
+        unlockedAt: unlockedData?.unlockedAt || null,
+        progress: 0, // Could be calculated from stats if needed
+        target: 1 // Simplified - could be extracted from condition
+      };
+    });
+
+    return allAchievements;
+  }
+
+  /**
    * Save achievements
    */
   async function saveAchievements(achievements) {
@@ -311,12 +335,13 @@ const GAMIFICATION = (() => {
 
     const userId = await getUserId(); // Anonymous ID
     const username = await getUsername(); // User-set display name
+    const totalPoints = await calculateTotalPoints(); // Calculate points first
 
     const entry = {
       userId,
-      username: username || `User${userId.slice(0, 6)}`,
-      level: userLevel.level,
-      points: calculateTotalPoints(),
+      username: username || `User_${userId.slice(0, 6)}`,
+      level: userLevel,  // Store full level object (not just level.level)
+      points: totalPoints,  // Use pre-calculated points
       stats: {
         streak: userStats.trackingStreak,
         sessions: userStats.sessionsCompleted,
@@ -458,6 +483,7 @@ const GAMIFICATION = (() => {
     LEVELS,
     checkAchievements,
     getAchievements,
+    getAllAchievements,
     calculateLevel,
     calculateStats,
     updateLeaderboard,
